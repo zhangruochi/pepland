@@ -1,0 +1,43 @@
+hydra:
+  run:
+    dir: ./outputs/${hydra.job.name}/${now:%m-%d-%H-%M}
+mode:
+  ddp: False
+  nni: False
+train:
+  device_ids: [1] # which gpu to use if any (default: 0)
+  batch_size: 512
+  epochs: 50
+  lr: 0.001
+  decay: 0
+  num_layer: 5
+  atom_dim: 42
+  bond_dim: 14
+  pharm_dim: 196
+  # tmp setting
+  reac_dim: 14
+  hid_dim: 300
+  # depth: 3
+  act: "ReLU"
+  dropout_ratio: 0
+  mask_rate: 0.8
+  mask_edge: False # whether to mask edges or not together with atom
+  mask_pharm: True
+  # JK: last # how the node features are combined across layers. last, sum, max or concat
+  # gnn_type: gin
+  random_seed: 0
+  num_workers: 8
+  mask_amino: false
+  mask_pep: 0.8
+  dataset: nnaa #pep_test #pep_atlas_uniparc_smiles_30  
+  # dataset: pep_atlas_uniparc_smiles_30_withnnaa
+  output_model_file: maskpep-258-aj-pj
+  fragment: '258'
+  model: fine-tune
+inference:
+  model_path: outputs/pretrain_masking/maskpep-aj-pj/maskpep-aj-pj
+logger:
+  log: True
+  log_dir: ${hydra:runtime.output_dir}
+  log_per_steps: 5
+  final_artifact_path: final
