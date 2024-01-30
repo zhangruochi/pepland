@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     model = load_model(cfg)
     model.to(device)
-
+        
     ## Get the smiles list
     with open(cfg.inference.data, "r") as f:
         input_smiles = f.readlines()
