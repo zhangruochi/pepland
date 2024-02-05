@@ -119,11 +119,11 @@ highlight_bonds = []
 for bond in mol.GetBonds():
     if bond.GetIdx() in break_bonds:
         highlight_bonds.append(bond.GetIdx())
+
+# cleavaged bonds are highlighted in red.
 Draw.MolToImage(mol, highlightBonds=highlight_bonds, size = (1000, 1000))
 ```
 
 <p align="center">
-  <img src="./doc/Adafrag.png" />
+  <img src="./doc/Adafrag.png" style="width: 500px;"/>
 </p>
-
-cleavaged bonds are highlighted in red.
