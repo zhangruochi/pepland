@@ -24,9 +24,7 @@ Empirical validations underscore PepLand's effectiveness across an array of **pe
 
 
 ### Pepland Architecture
-<p align="center">
-  <img src="./doc/arch.png" />
-</p>
+![pepland](./doc/arch.png)
 
 The overall workflow of proposed PepLand framework. (a) Two-stage training approach. PepLand will first be trained on peptide sequences containing only canonical amino acids, and then futher trained on peptide sequences containing non-canonical amino acids. After this, PepLand can be finetuned for downstream property prediction task. (b) PepLand uses a multi-view heterogeneous graph network to represent the molecular graph of peptides. Fragments of various granularities will be randomly masked for self-supervised pretraining.
 
@@ -41,9 +39,8 @@ Illustrations of the Amiibo and AdaFrag fragmentation operator. Amiibo operator 
 
 ### Multi-view Heterogeneous Graph
 
-<p align="center">
-  <img src="./doc/multi-view.png" />
-</p>
+
+![multi-view](./doc/multi-view.png)
 
 The multi-view feature representation framework of PepLand. (a) A peptide molecule can have multiple representations of views. The top F1-F10 in the figure represent fragment views, and the bottom represents atom-level views. Both atoms and fragments will learn a junction view representation. Homogeneous edges are formed within atoms and fragments. Heterogeneous edges are formed between atoms and fragments, as each fragment in the figure is connected to a specific subgraph structure below. (b) Molecular graph structures of F1-F10. They are connected by amino bonds. (c) Each representation of views will be randomly masked for self-supervised learning.
 
@@ -123,7 +120,4 @@ for bond in mol.GetBonds():
 # cleavaged bonds are highlighted in red.
 Draw.MolToImage(mol, highlightBonds=highlight_bonds, size = (1000, 1000))
 ```
-
-<p align="center">
-  <img src="./doc/Adafrag.png" style="width: 500px;"/>
-</p>
+![Adafrag](./doc/Adafrag.png)
