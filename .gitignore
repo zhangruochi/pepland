@@ -6,3 +6,5 @@ outputs/
 .ipynb_checkpoints/
 launch.json
 condaenv.9_d34wxp.requirements.txt
+pep_atlas_uniparc_smiles_30_withnnaa/
+nnaa/

@@ -8,11 +8,9 @@
   - [Training](#training)
   - [AdaFrag](#adafrag)
 
-# PepLand 
+# PepLand
 
 This repository contains the code for the paper [PepLand: a large-scale pre-trained peptide representation model for a comprehensive landscape of both canonical and non-canonical amino acids](https://arxiv.org/abs/2311.04419).
-
-
 
 ## Introduction
 
@@ -22,12 +20,11 @@ We herein propose `PepLand`, a novel pre-training architecture for **representat
 
 Empirical validations underscore PepLand's effectiveness across an array of **peptide property predictions**, encompassing **protein-protein interactions**, **permeability**, **solubility**, and **synthesizability**. The rigorous evaluation confirms PepLand's unparalleled capability in capturing salient synthetic peptide features, thereby laying a robust foundation for transformative advances in peptide-centric research domains.
 
-
 ### Pepland Architecture
+
 ![pepland](./doc/arch.png)
 
 The overall workflow of proposed PepLand framework. (a) Two-stage training approach. PepLand will first be trained on peptide sequences containing only canonical amino acids, and then futher trained on peptide sequences containing non-canonical amino acids. After this, PepLand can be finetuned for downstream property prediction task. (b) PepLand uses a multi-view heterogeneous graph network to represent the molecular graph of peptides. Fragments of various granularities will be randomly masked for self-supervised pretraining.
-
 
 ### Fragmentation Operator
 
@@ -39,14 +36,12 @@ Illustrations of the Amiibo and AdaFrag fragmentation operator. Amiibo operator 
 
 ### Multi-view Heterogeneous Graph
 
-
 ![multi-view](./doc/multi-view.png)
 
 The multi-view feature representation framework of PepLand. (a) A peptide molecule can have multiple representations of views. The top F1-F10 in the figure represent fragment views, and the bottom represents atom-level views. Both atoms and fragments will learn a junction view representation. Homogeneous edges are formed within atoms and fragments. Heterogeneous edges are formed between atoms and fragments, as each fragment in the figure is connected to a specific subgraph structure below. (b) Molecular graph structures of F1-F10. They are connected by amino bonds. (c) Each representation of views will be randomly masked for self-supervised learning.
 
-
-
 ## Installation
+
 ```shell
 conda env create -f environment.yaml
 conda activate multiview
@@ -54,7 +49,8 @@ conda activate multiview
 
 ## Inference using pretrained PepLand
 
-- Modify `configs/inference.yaml` to configure the inference 
+- Modify `configs/inference.yaml` to configure the inference
+
 ```
 cd inference 
 python inference_pepland.py
@@ -63,23 +59,38 @@ python inference_pepland.py
 ## Training
 
 1. Modify `configs/pretrain_masking.yaml` to configure the training
+
 - Masking Method
+
 ```bash
 train.mask_pharm = True # random fragment masking
 train.mask_rate = 0.8 # masking rate (random atom masking and random fragment masking)
 train.mask_amino = 0.3 # or False, masking atoms of the same amino acid.
 train.mask_pep = 0.8 # or False, masking atoms of side chains 
 ```
-- Two Step Training
+
+- Training Step1: Pretraining on canonical amino acids
+
 ```bash
-train.dataset = nnaa
+train.dataset = pretrained
+train.model = PharmHGT
+```
+
+- Training Step2: Pretraining on non-canonical amino acids
+
+```bash
+train.dataset = further_training
 train.model = fine-tune
 ```
+
 - Message Passing Architecture
+
 ```bash
-train.model = PharmHGT # or fine-tune, HGT
+train.model = PharmHGT # HGT
 ```
+
 2. Run training script
+
 ```bash
 python pretrain_masking.py
 ```
@@ -87,14 +98,19 @@ python pretrain_masking.py
 ## AdaFrag
 
 1. Navigate to the tokenizer directory
+
 ```
 cd tokenizer
 ```
+
 2. Run the AdaFrag script
+
 ```bash
 python pep2fragments.py
 ```
+
 3. Examples:
+
 ```python
 import os
 import sys
@@ -120,4 +136,5 @@ for bond in mol.GetBonds():
 # cleavaged bonds are highlighted in red.
 Draw.MolToImage(mol, highlightBonds=highlight_bonds, size = (1000, 1000))
 ```
+
 ![Adafrag](./doc/Adafrag.png)

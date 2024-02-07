@@ -4,8 +4,9 @@ hydra:
 mode:
   ddp: False
   nni: False
+
 train:
-  device_ids: [1] # which gpu to use if any (default: 0)
+  device_ids: [0] # which gpu to use if any (default: 0)
   batch_size: 512
   epochs: 50
   lr: 0.001
@@ -29,15 +30,15 @@ train:
   num_workers: 8
   mask_amino: false
   mask_pep: 0.8
-  dataset: nnaa #pep_test #pep_atlas_uniparc_smiles_30  
-  # dataset: pep_atlas_uniparc_smiles_30_withnnaa
-  output_model_file: maskpep-258-aj-pj
+  data_dir: "./data"
+  dataset: further_training #pretrained # further_training
+  output_model_file: cpkt
   fragment: '258'
-  model: fine-tune
+  model: fine-tune #"PharmHGT" #fine-tune
 inference:
-  model_path: outputs/pretrain_masking/maskpep-aj-pj/maskpep-aj-pj
+  model_path: ./inference/cpkt/
 logger:
-  log: True
+  log: False
   log_dir: ${hydra:runtime.output_dir}
   log_per_steps: 5
   final_artifact_path: final

@@ -24,18 +24,16 @@ from torch.utils.data.distributed import DistributedSampler
 import pickle
 from tokenizer.pep2fragments import get_cut_bond_idx, get_atom_parentAA
 
+
 fdefName = os.path.join(RDConfig.RDDataDir,'BaseFeatures.fdef')
 factory = ChemicalFeatures.BuildFeatureFactory(fdefName)
 
 
-
+vocab_dict = {}
 
 # TODO change file path
-
-vocab_dict = {}
-frag = '258'
 path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-with open(os.path.join(path, 'tokenizer/vocabs/Vocab_SIZE'+frag+'.txt'), 'r') as f:
+with open(os.path.join(path, 'tokenizer/vocabs/Vocab_SIZE258.txt'), 'r') as f:
     idx = 0
     for line in f.readlines():
         line = line.strip('\n')
@@ -45,8 +43,8 @@ with open(os.path.join(path, 'tokenizer/vocabs/Vocab_SIZE'+frag+'.txt'), 'r') as
         except:
             # print(line)
             pass
-print(f'vocab dict size {len(vocab_dict)}')
 
+print(f'vocab dict size {len(vocab_dict)}')
 
 
 def bond_features(bond: Chem.rdchem.Bond):
@@ -137,7 +135,7 @@ def GetFragmentFeats(mol, side_chain_cut=True):
     # break_bonds = [mol.GetBondBetweenAtoms(i[0][0],i[0][1]).GetIdx() for i in FindBRICSBonds(mol)]
 
     # Instead of BRICS algorithm, we use fragmentation method tailored for peptide data
-    break_bonds, break_bonds_atoms = get_cut_bond_idx(mol,side_chain_cut)
+    break_bonds, break_bonds_atoms = get_cut_bond_idx(mol)
     #mol_fragments = Chem.GetMolFrags(Chem.FragmentOnBonds(mol, cut_bond_set, addDummies=False), asMols=True)
 
     if break_bonds == []:
@@ -452,7 +450,8 @@ class MaskAtom:
             self.mask_rate, self.mask_edge)
 
 
-def Mol2HeteroGraph(mol, masked_atom_indices=None, num_atom_type=119,num_edge_type=5,frag='258'):
+def Mol2HeteroGraph(mol, masked_atom_indices=None, num_atom_type=119,num_edge_type=5):
+    
     
     # build graphs
     edge_types = [('a','b','a'),('p','r','p'),('a','j','p'), ('p','j','a')]
@@ -466,10 +465,8 @@ def Mol2HeteroGraph(mol, masked_atom_indices=None, num_atom_type=119,num_edge_ty
     # result_frag: Dict {pharm_id:fragments_smiles}
     # query_reac_idx, query_bbr = GetBricsBonds(mol)
 
-    if frag=='258':
-        result_ap, result_p, result_frag, reac_idx, bbr, break_bonds = GetFragmentFeats(mol,True)
-    elif frag=='410':
-        result_ap, result_p, result_frag, reac_idx, bbr, break_bonds = GetFragmentFeats(mol,False)
+    
+    result_ap, result_p, result_frag, reac_idx, bbr, break_bonds = GetFragmentFeats(mol)
     atom2aa_label_map = get_atom_parentAA(mol)
 
 
@@ -586,59 +583,55 @@ def Mol2HeteroGraph(mol, masked_atom_indices=None, num_atom_type=119,num_edge_ty
 
 class MolGraphSet(IterableDataset):
     # def __init__(self,df,target,log=print):
-    def __init__(self,cfg,df1,log=print, transform=None):
+    def __init__(self,df1,log=print, transform=None):
+        # self.data = df.head(10)
         self.naa = df1
+        # self.nnaa = df2
         self.mol_count = len(self.naa)
+        # self.graphs = []
         self.transform = transform
         self.log = log
-        if cfg.train.fragment == '258':
-            self.frag = '258'
-        elif cfg.train.fragment == '410':
-            self.frag = '410'
     def __len__(self):
         return self.mol_count
+    
     def get_data(self,data):
         for i,row in data.iterrows():
             # graphs = []
             smi = row['smiles']
             # label = row[target].values.astype(float)
-            mol = Chem.MolFromSmiles(smi)
-            if mol is None:
-                self.log('invalid',smi)
-            else:
-                g = Mol2HeteroGraph(mol,frag = self.frag)
-                # print(g)
-                if g.num_nodes('a') == 0:
-                    self.log('no edge in graph',smi)
+            try:
+                mol = Chem.MolFromSmiles(smi)
+                if mol is None:
+                    self.log('invalid',smi)
                 else:
-                    if self.transform:
-                        yield self.transform(g)
+                    g = Mol2HeteroGraph(mol)
+                    # print(g)
+                    if g.num_nodes('a') == 0:
+                        self.log('no edge in graph',smi)
                     else:
-                        yield g
-
-    # def get_data(self,data):
-    #     for i,row in data.iterrows():
-    #         # graphs = []
-    #         smi = row['smiles']
-    #         # label = row[target].values.astype(float)
-    #         try:
-    #             mol = Chem.MolFromSmiles(smi,frag = self.frag)
-    #             if mol is None:
-    #                 self.log('invalid',smi)
-    #             else:
-    #                 g = Mol2HeteroGraph(mol)
-    #                 # print(g)
-    #                 if g.num_nodes('a') == 0:
-    #                     self.log('no edge in graph',smi)
-    #                 else:
-    #                     if self.transform:
-    #                         yield self.transform(g)
-    #                     else:
-    #                         yield g
-    #         except Exception as e:
-    #             self.log(e,'invalid',smi)
-    #             pass
+                        if self.transform:
+                            yield self.transform(g)
+                        else:
+                            yield g
+            except Exception as e:
+                self.log(e,'invalid',smi)
+                pass
             
+            # mol = Chem.MolFromSmiles(smi)
+            # if mol is None:
+            #     self.log('invalid',smi)
+            # else:
+            #     g = Mol2HeteroGraph(mol)
+            #     # print(g)
+            #     if g.num_nodes('a') == 0:
+            #         self.log('no edge in graph',smi)
+            #     else:
+            #         if self.transform:
+            #             yield self.transform(g)
+            #         else:
+                        
+            #             yield g
+           
     
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -659,23 +652,30 @@ class MolGraphSet(IterableDataset):
 
 
 
-def create_dataset(cfg, path,transform,mask_rate=0.1,mask_edge=False,shuffle=True):
+def create_dataset(path,transform,mask_rate=0.1,mask_edge=False,shuffle=True):
     # transform_func = MaskAtom(num_atom_type=119, num_edge_type=5, mask_rate=mask_rate, mask_edge=mask_edge)
-    dataset = MolGraphSet(cfg,pd.read_csv(path),transform=transform)
+    dataset = MolGraphSet(pd.read_csv(path),transform=transform)
     # dataset_nnaa = MolGraphSet(pd.read_csv(path2),transform=transform)
     return dataset
 
 
 
-def make_loaders(cfg, ddp, dataset ,world_size=0, global_rank=0, batch_size=512, num_workers=0, transform=None):
+def make_loaders(cfg, ddp, dataset, world_size=0, global_rank=0, batch_size=512, num_workers=0, transform=None):
     # dataset = create_dataloader('/mnt/data/xiuyuting/delaney-processed.csv',transform=transform,shuffle=True)
     # train_dataset, valid_dataset, test_dataset = random_split(dataset, task_idx=None, null_value=0, frac_train=0.9,frac_valid=0.05, frac_test=0.05)
     # print(len(train_dataset),valid_dataset,test_dataset)
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    prefix = '/home/april/fragmpnn/data/'
     # prefix = os.path.join(path, 'data/')
-    train_dataset = create_dataset(cfg,os.path.join(root_dir, "data", dataset, 'train.csv'),transform=transform)
-    test_dataset = create_dataset(cfg,os.path.join(root_dir, "data", dataset, 'test.csv'),transform=transform)
-    valid_dataset = create_dataset(cfg,os.path.join(root_dir, "data", dataset, 'valid.csv'),transform=transform)
+
+    if cfg.train.model == 'fine-tune':
+        train_dataset = create_dataset('/home/xiuyuting/fragmpnn/data/'+dataset+'/train.csv',transform=transform)
+        test_dataset = create_dataset('/home/xiuyuting/fragmpnn/data/'+dataset+'/test.csv',transform=transform)
+        valid_dataset = create_dataset('/home/xiuyuting/fragmpnn/data/'+dataset+'/valid.csv',transform=transform)
+    else:
+        train_dataset = create_dataset(prefix+dataset+'/train.csv',transform=transform)
+        test_dataset = create_dataset(prefix+dataset+'/test.csv',transform=transform)
+        valid_dataset = create_dataset(prefix+dataset+'/valid.csv',transform=transform)
     print('train:',len(train_dataset))
     if ddp:
         train_smapler = DistributedSampler(train_dataset, num_replicas=world_size, rank=global_rank)
@@ -696,6 +696,7 @@ def make_loaders(cfg, ddp, dataset ,world_size=0, global_rank=0, batch_size=512,
 
     return dataloaders
 
+    
     
 def random_split(load_path,save_dir,num_fold=5,sizes = [0.9,0.05,0.05],seed=0):
     df = pd.read_csv(load_path, header = None, names=['smiles'])
@@ -733,24 +734,9 @@ if __name__=='__main__':
     # path = '/home/april/pep_chembert/data/pep_atlas_uniparc_smiles_30_withnnaa.txt'
     #random_split(path,'/home/april/fragmpnn/data/pep_atlas_uniparc_smiles_30_withnnaa',1)
 
-    # seq = 'A'
-    # smiles = 'CC(C)C[C@H](NC(=O)[C@@H]1CCCN1C(=O)[C@@H](N)CC(N)=O)C(=O)N[C@@H](Cc1ccc(O)cc1)C(=O)N[C@@H](CS)C(=O)N[C@@H](CCC(=O)O)C(=O)N[C@@H](CO)C(=O)N[C@H](C(=O)N[C@@H](Cc1c[nH]cn1)C(=O)O)C(C)C'
-    # mol = Chem.MolFromSequence(seq)
-    # mol = Chem.MolFromSmiles(smiles)
-    # g = Mol2HeteroGraph(mol)
+
+    smiles = 'CC(C)C[C@H](NC(=O)[C@@H]1CCCN1C(=O)[C@@H](N)CC(N)=O)C(=O)N[C@@H](Cc1ccc(O)cc1)C(=O)N[C@@H](CS)C(=O)N[C@@H](CCC(=O)O)C(=O)N[C@@H](CO)C(=O)N[C@H](C(=O)N[C@@H](Cc1c[nH]cn1)C(=O)O)C(C)C'
+    mol = Chem.MolFromSmiles(smiles)
+    g = Mol2HeteroGraph(mol)
     # transform = MaskAtom(num_atom_type=119, num_edge_type=4, mask_rate=0.8, mask_edge = False, mask_fragment = True, mask_amino = False, mask_pep = 0.5)
     # transform(g)
-    # print(g.ndata)
-    smiles1="O=C([C@@H](N(CC)C1=O)CC2=CC=C(C=C2)C)N(CC)CC(N[C@H](C(N3[C@H](C(NC4(C(N(C)[C@H](C(N([C@@H](CC(N(C)[C@@H](CC(C)C)C(N[C@H](C(N(C)[C@@H](C)C(N5[C@H]1CC5)=O)=O)[C@@H](C)CC)=O)=O)C(N6CCOCC6)=O)C)=O)C7CCCC7)=O)CCCC4)=O)CCC3)=O)CCC8=CC(Cl)=C(C=C8)C(F)(F)F)=O"
-    smiles2="O=C(N(C)CC(N[C@@H](CCC1=CC(Cl)=C(C(F)(F)F)C=C1)C(N2[C@@H](CCC2)C(NC3(CCCC3)C(N([C@@H](C4CCCC4)C(N(C)[C@H](C(N5CCOCC5)=O)C6)=O)C)=O)=O)=O)=O)[C@H](CC7=CC=C(C=C7)C)N(C)C([C@H](CO)N(C(CN(C([C@@H](NC([C@H](CC(C)C)N(C)C6=O)=O)[C@H](CC)C)=O)C)=O)C)=O"
-    from rdkit import Chem
-    mol1 = Chem.MolFromSmiles(smiles1)
-    g1 = Mol2HeteroGraph(mol1)
-    mol2 = Chem.MolFromSmiles(smiles2)
-    g2 = Mol2HeteroGraph(mol2)
-    print('mol1:',g1)
-    print('mol2:',g2)
-    mol = Chem.MolFromSmiles(smiles1+"."+smiles2)
-    g = Mol2HeteroGraph(mol)
-    # print(Chem.MolToSmiles(Chem.MolFromSmiles(smiles1+"."+smiles2)))
-    print('mol1+mol2:',g)
