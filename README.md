@@ -5,6 +5,7 @@
     - [Multi-view Heterogeneous Graph](#multi-view-heterogeneous-graph)
   - [Installation](#installation)
   - [Inference using pretrained PepLand](#inference-using-pretrained-pepland)
+  - [Data](#data)
   - [Training](#training)
   - [AdaFrag](#adafrag)
 
@@ -56,6 +57,25 @@ cd inference
 python inference_pepland.py
 ```
 
+## Data 
+
+- The `data` folder contains the pretraining and further training example data. We used the SMILES representation of peptides in the two steps of pretraining.  
+- You can also use your own data by modifying the `train.csv`, `test.csv`, and `valid.csv` files in the `data` folder.
+- The data is organized as follows:
+
+```
+---data
+  ---pretrained
+    ----train.csv
+    ----test.csv
+    ----valid.csv
+  ---further_training
+    ----train.csv
+    ----test.csv
+    ----valid.csv
+```
+
+
 ## Training
 
 1. Modify `configs/pretrain_masking.yaml` to configure the training
@@ -81,6 +101,7 @@ train.model = PharmHGT
 ```bash
 train.dataset = further_training
 train.model = fine-tune
+inference.model_path = ./inference/cpkt/ # here we used the pretrained cpkt as an exmaple output of first training step
 ```
 
 - Message Passing Architecture
