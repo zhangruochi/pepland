@@ -164,7 +164,7 @@ Draw.MolToImage(mol, highlightBonds=highlight_bonds, size = (1000, 1000))
 
 ## Fine-tuning and feature extraction examples 
 
-- navigate to the `finetune_example` directory
+- navigate to the `examples` directory
 - use the following command to run the example
 ```bash
 python main.py

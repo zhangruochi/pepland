@@ -2,9 +2,8 @@ import os
 import sys 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from omegaconf import OmegaConf
-from finetune_example.models.pepland.inference import FeatureExtractor
-from finetune_example.models.core import PropertyPredictor
+from examples.models.pepland.inference import FeatureExtractor
+from examples.models.core import PropertyPredictor
 
 
 def test_feature_extractor():
@@ -40,8 +39,6 @@ def test_model_predictor():
 
 
     ## TODO, use a trainer and a dataset to train the model.
-
-    
 
 if __name__ == "__main__":
     test_feature_extractor()
