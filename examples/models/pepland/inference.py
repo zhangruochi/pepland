@@ -120,7 +120,6 @@ class FeatureExtractor():
 
 
 class PepLandPredictor(nn.Module):
-
     def __init__(self,
                  model_path="./cpkt/model",
                  pool_type='avg'):
@@ -156,7 +155,7 @@ class PepLandPredictor(nn.Module):
                                bidirectional=False,
                                num_layers=1)
 
-    def tokenize(self, input_smiles: List):
+    def tokenize(self, input_smiles: List[str]):
         graphs = []
         for i, smi in enumerate(input_smiles):
             try:

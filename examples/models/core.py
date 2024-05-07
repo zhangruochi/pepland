@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 ###
 # File: /home/richard/projects/pepcorsser/models/core.py
-# Project: /home/richard/projects/pepland/finetune_example/models
+# Project: /home/richard/projects/pepland/examples/models
 # Created Date: Sunday, April 28th 2024, 12:03:00 am
 # Author: Ruochi Zhang
 # Email: zrc720@gmail.com
@@ -41,10 +41,14 @@ import torch.nn as nn
 from .pepland.inference import PepLandPredictor
 import numpy as np
 from typing import List, Union
+import dgl
 
 
 class PropertyPredictor(nn.Module):
-
+    """ PropertyPredictor
+        This model is used to predict the property of the peptide
+        based on the peptide graph representation from pre-trained PepLand model.
+    """
     def __init__(self, model_path, pool_type = "avg", hidden_dims = [256,128], mlp_dropout=0.1):
         super(PropertyPredictor, self).__init__()
 
@@ -65,10 +69,13 @@ class PropertyPredictor(nn.Module):
         self.mlp.add_module('output', nn.Linear(hidden_dim, 1))
         self.mlp.add_module('sigmoid', nn.Sigmoid())
 
-    def forward(self,
-                pep_graph):
-
-        graph_rep = self.feature_model(pep_graph)
+    def forward(self, input_molecules: Union[List[str], dgl.DGLHeteroGraph]) -> torch.Tensor:
+        """ args:
+            input_molecules: List of SMILES strings or dgl.DGLHeteroGraph
+            return: torch.Tensor
+        """
+    
+        graph_rep = self.feature_model(input_molecules)
         pred = self.mlp(graph_rep)
         
         return pred
