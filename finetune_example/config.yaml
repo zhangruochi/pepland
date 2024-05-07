@@ -1,0 +1,10 @@
+orig_cwd: "."
+
+model:
+  pepland:
+    model_path: "./models/pepland/cpkt/model"
+    pool_type: "max"
+    output_dim: 300
+  mlp:
+    hidden_dims: [256, 128]
+    dropout: 0.3
