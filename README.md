@@ -60,12 +60,19 @@ python inference_pepland.py
 
 ## Data 
 
+- We release all the evaluation datasets we collected in the `data/eval` folder.
 - The `data` folder contains the pretraining and further training example data. We used the SMILES representation of peptides in the two steps of pretraining.  
 - You can also use your own data by modifying the `train.csv`, `test.csv`, and `valid.csv` files in the `data` folder.
 - The data is organized as follows:
 
 ```
 ---data
+  ---eval
+    ---- c-binding.csv
+    ---- nc-binding.csv
+    ---- c-CPP.txt
+    ---- nc-CPP.csv
+    ---- c-Sol.txt
   ---pretrained
     ----train.csv
     ----test.csv
