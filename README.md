@@ -8,7 +8,6 @@
   - [Data](#data)
   - [Training](#training)
   - [AdaFrag](#adafrag)
-  - [Fine-tuning and feature extraction examples](#fine-tuning-and-feature-extraction-examples)
 
 # PepLand
 
@@ -166,13 +165,3 @@ Draw.MolToImage(mol, highlightBonds=highlight_bonds, size = (1000, 1000))
 ```
 
 ![Adafrag](./doc/Adafrag.png)
-
-
-## Fine-tuning and feature extraction examples 
-
-- navigate to the `examples` directory
-- use the following command to run the example
-```bash
-python main.py
-```
-- we will continue to update the example code for more detailed usage of the model.
