@@ -1,8 +1,0 @@
-mode:
-  ddp: false
-
-inference:
-  device_ids: [0]
-  model_path: "./cpkt/model"
-  pool: avg #avg or max
-  atom_index: false #false or index

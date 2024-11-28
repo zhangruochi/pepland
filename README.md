@@ -54,8 +54,7 @@ conda activate multiview
 - Modify `configs/inference.yaml` to configure the inference
 
 ```
-cd inference 
-python inference_pepland.py
+python inference.py
 ```
 
 ## Data 
