@@ -53,9 +53,10 @@ def load_model(model_path):
         return:
             model: torch.nn.Module
     """
-    sys.path.append(os.path.join(model_path, "code"))
+    # from mlm.pepland.model.model import PharmHGT
+    sys.path.insert(0, os.path.join(model_path, "code"))
     print("loading model from : {}".format(model_path))
-    model = mlflow.pytorch.load_model(model_path, map_location="cpu")
+    model = mlflow.pytorch.load_model(model_path)
     model.eval()
     return model
 

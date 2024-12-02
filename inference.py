@@ -7,7 +7,7 @@
 # Author: Ruochi Zhang
 # Email: zrc720@gmail.com
 # -----
-# Last Modified: Thu Nov 28 2024
+# Last Modified: Sun Dec 01 2024
 # Modified By: Ruochi Zhang
 # -----
 # Copyright (c) 2024 Bodkin World Domination Enterprises
@@ -58,7 +58,7 @@ if __name__ == "__main__":
                           and len(cfg.inference.device_ids) > 0 else "cpu")
     data_path = os.path.join(root_dir, cfg.inference.data)
 
-    model = PepLandFeatureExtractor(model_path, device, pooling)
+    model = PepLandFeatureExtractor(model_path, pooling)
 
     ## Get the smiles list
     with open(cfg.inference.data, "r") as f:

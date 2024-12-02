@@ -7,7 +7,7 @@
 # Author: Ruochi Zhang
 # Email: zrc720@gmail.com
 # -----
-# Last Modified: Thu Nov 28 2024
+# Last Modified: Mon Dec 02 2024
 # Modified By: Ruochi Zhang
 # -----
 # Copyright (c) 2024 Bodkin World Domination Enterprises
@@ -46,6 +46,44 @@ from typing import List, Union
 import dgl
 
 
+class Node_GRU(nn.Module):
+    """GRU for graph readout. Implemented with dgl graph"""
+
+    def __init__(self, hid_dim=300, bidirectional=True):
+        super(Node_GRU, self).__init__()
+        self.hid_dim = hid_dim
+        if bidirectional:
+            self.direction = 2
+        else:
+            self.direction = 1
+        self.atom_gru = nn.GRU(hid_dim,
+                               hid_dim,
+                               batch_first=True,
+                               bidirectional=bidirectional)
+        self.frag_gru = nn.GRU(hid_dim,
+                               hid_dim,
+                               batch_first=True,
+                               bidirectional=bidirectional)
+
+        factor = 2 if bidirectional else 1
+        self.projection = nn.Linear(hid_dim * 2 * factor, hid_dim)
+
+    def forward(self, atom_rep: torch.Tensor,
+                frag_rep: torch.Tensor) -> torch.Tensor:
+
+        atom_rep, _ = self.atom_gru(atom_rep)
+        frag_rep, _ = self.frag_gru(frag_rep)
+
+        atom_rep = atom_rep[:, -1, :]
+        frag_rep = frag_rep[:, -1, :]
+
+        embed = torch.cat([atom_rep, frag_rep], dim=1)
+
+        embed = self.projection(embed)
+
+        return embed
+
+
 class PepLandFeatureExtractor(nn.Module):
 
     def __init__(self, model_path, pooling: Union[str, None] = 'avg'):
@@ -59,6 +97,12 @@ class PepLandFeatureExtractor(nn.Module):
         super(PepLandFeatureExtractor, self).__init__()
 
         self.model = load_model(model_path)
+
+        # remove layer contains "readout" and "out"
+        for name, module in list(self.model.named_children()):
+            if 'readout' in name or 'out' in name:
+                delattr(self.model, name)
+
         if pooling == 'max':
             pooling_layer = nn.Sequential(Permute(),
                                           nn.AdaptiveMaxPool1d(output_size=1),
@@ -67,14 +111,17 @@ class PepLandFeatureExtractor(nn.Module):
             pooling_layer = nn.Sequential(Permute(),
                                           nn.AdaptiveAvgPool1d(output_size=1),
                                           Squeeze(dim=-1))
+
+        elif pooling == "gru":
+            pooling_layer = Node_GRU(hid_dim=300, bidirectional=True)
+
         else:
             pooling_layer = None
 
         self.pooling_layer = pooling_layer
 
-    def tokenize(self, input_smiles: List[str]) -> List[str]:
-        if isinstance(input_smiles, str):
-            input_smiles = [input_smiles]
+    @staticmethod
+    def tokenize(input_smiles: List[str]) -> List[str]:
 
         input_smiles = to_canonical_smiles(input_smiles)
 
@@ -87,6 +134,42 @@ class PepLandFeatureExtractor(nn.Module):
                 raise ValueError(
                     "Error processing SMILES string: {}. {}".format(smi, e))
         return graphs
+
+    def extract_atom_fragment_embedding(
+            self, input_smiles: Union[List[str],
+                                      dgl.DGLHeteroGraph]) -> torch.Tensor:
+        """ Extract the atom and fragment embedding from the model
+            args:
+                input_smiles: List of SMILES strings
+            return:
+                atom_embeds: torch.Tensor
+                frag_embeds: torch.Tensor
+
+            examples:
+                input_smiles = ['CCO', 'CCN']
+                atom_embeds.shape == [2, 30, 300]
+                frag_embeds.shape == [2, 300]
+        """
+        if isinstance(input_smiles, str):
+            input_smiles = [input_smiles]
+
+        if not isinstance(input_smiles[0], dgl.DGLHeteroGraph):
+            graphs = self.tokenize(input_smiles)
+        else:
+            graphs = input_smiles
+
+        bg = dgl.batch(graphs).to(self.device)
+
+        with torch.no_grad():
+            atom_embed, frag_embed = self.model(bg)
+
+        bg.nodes['a'].data['h'] = atom_embed
+        bg.nodes['p'].data['h'] = frag_embed
+
+        atom_embeds = split_batch(bg, 'a', 'h', self.device)
+        frag_embeds = split_batch(bg, 'p', 'h', self.device)
+
+        return atom_embeds, frag_embeds
 
     def forward(
             self,
@@ -112,27 +195,23 @@ class PepLandFeatureExtractor(nn.Module):
                 atom_index = None
                 pep_embeds.shape == [2, 300]
         """
-        if isinstance(atom_index, int):
-            atom_index = [atom_index]
-
-        graphs = self.tokenize(input_smiles)
-        bg = dgl.batch(graphs).to(self.device)
-
-        atom_embed, frag_embed = self.model(bg)
-        bg.nodes['a'].data['h'] = atom_embed
-        bg.nodes['p'].data['h'] = frag_embed
-
-        atom_rep = split_batch(bg, 'a', 'h', self.device)
+        atom_rep, frag_rep = self.extract_atom_fragment_embedding(input_smiles)
 
         # if set atom index, only return the atom embedding with the index
         if atom_index:
             pep_embeds = atom_rep[:, atom_index]
         else:
             # if not set atom index, return the whole peptide embedding (atom + fragment)
-            frag_rep = split_batch(bg, 'p', 'h', self.device)
+
             if self.pooling_layer is not None:
-                embed = self.pooling_layer(
-                    torch.cat([atom_rep, frag_rep], dim=1))
+                if isinstance(self.pooling_layer, Node_GRU):
+                    embed = self.pooling_layer(atom_rep, frag_rep)
+                else:
+                    embed = self.pooling_layer(
+                        torch.cat([atom_rep, frag_rep], dim=1))
+            else:
+                embed = torch.cat([atom_rep, frag_rep], dim=1)
+
             pep_embeds = embed
 
         return pep_embeds

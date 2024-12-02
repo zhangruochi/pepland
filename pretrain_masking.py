@@ -9,21 +9,15 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-import nni
 import hydra
 import mlflow
-import shutil
-import timeit
-import numpy as np
-from tqdm import tqdm
-from pathlib import Path
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
 from model.model import PharmHGT
 from model.hgt import HGT, HeteroRGCN
 from model.data import make_loaders, MaskAtom
 from utils.distribution import setup_multinodes, cleanup_multinodes
-from utils.utils import fix_random_seed, get_device, is_parallel, load_weights, load_model_masking
+from utils.utils import fix_random_seed, get_device, load_model_masking
 from utils.std_logger import Logger
 from trainer import Masking_Trainer
 
@@ -31,7 +25,6 @@ from trainer import Masking_Trainer
 @hydra.main(config_path="configs",
             config_name="pretrain_masking.yaml",
             version_base='1.2')
-# @hydra.main(config_path="configs", config_name="test.yaml", version_base='1.2')
 def main(cfg: DictConfig):
 
     global_rank = 0

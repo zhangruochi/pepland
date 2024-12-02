@@ -32,7 +32,7 @@ with open(os.path.join(root_dir, 'tokenizer/vocabs/Vocab_SIZE258.txt'),
             # print(line)
             pass
 
-print(f'vocab dict size {len(vocab_dict)}')
+# print(f'vocab dict size {len(vocab_dict)}')
 
 ELEMENTS = [35, 6, 7, 8, 9, 15, 16, 17, 53]
 ATOM_FEATURES = {
