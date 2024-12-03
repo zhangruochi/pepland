@@ -7,7 +7,7 @@
 # Author: Ruochi Zhang
 # Email: zrc720@gmail.com
 # -----
-# Last Modified: Mon Dec 02 2024
+# Last Modified: Tue Dec 03 2024
 # Modified By: Ruochi Zhang
 # -----
 # Copyright (c) 2024 Bodkin World Domination Enterprises
@@ -44,6 +44,7 @@ import torch.nn as nn
 import numpy as np
 from typing import List, Union
 import dgl
+from collections import OrderedDict
 
 
 class Node_GRU(nn.Module):
@@ -56,6 +57,7 @@ class Node_GRU(nn.Module):
             self.direction = 2
         else:
             self.direction = 1
+
         self.atom_gru = nn.GRU(hid_dim,
                                hid_dim,
                                batch_first=True,
@@ -86,22 +88,28 @@ class Node_GRU(nn.Module):
 
 class PepLandFeatureExtractor(nn.Module):
 
-    def __init__(self, model_path, pooling: Union[str, None] = 'avg'):
+    def __init__(self,
+                 model_path,
+                 pooling: Union[str, None] = 'avg',
+                 freeze=True):
         """ Initialize the PepLandInference class
             args:
                 model_path: str, the path to the model directory
-                device: torch.device
-                pooling: str, the pooling method, either 'max
-            
+                pooling: str, the pooling method, either 'max', 'avg', or 'gru'
+                freeze: bool, whether to freeze the model
         """
         super(PepLandFeatureExtractor, self).__init__()
 
         self.model = load_model(model_path)
 
-        # remove layer contains "readout" and "out"
+        # Remove layers containing "readout" and "out"
         for name, module in list(self.model.named_children()):
             if 'readout' in name or 'out' in name:
                 delattr(self.model, name)
+
+        if freeze:
+            for param in self.model.parameters():
+                param.requires_grad = False
 
         if pooling == 'max':
             pooling_layer = nn.Sequential(Permute(),
@@ -111,28 +119,39 @@ class PepLandFeatureExtractor(nn.Module):
             pooling_layer = nn.Sequential(Permute(),
                                           nn.AdaptiveAvgPool1d(output_size=1),
                                           Squeeze(dim=-1))
-
         elif pooling == "gru":
             pooling_layer = Node_GRU(hid_dim=300, bidirectional=True)
-
         else:
             pooling_layer = None
-
         self.pooling_layer = pooling_layer
 
-    @staticmethod
-    def tokenize(input_smiles: List[str]) -> List[str]:
+        self.max_cache_size = 100000  # Set the maximum cache size
+        self._tokenize_cache = OrderedDict(
+        )  # Initialize the cache as an OrderedDict
 
+    def tokenize(self, input_smiles: List[str]) -> List:
         input_smiles = to_canonical_smiles(input_smiles)
 
         graphs = []
-        for i, smi in enumerate(input_smiles):
-            try:
-                graph = Mol2HeteroGraph(smi)
-                graphs.append(graph)
-            except Exception as e:
-                raise ValueError(
-                    "Error processing SMILES string: {}. {}".format(smi, e))
+        for smi in input_smiles:
+            if smi in self._tokenize_cache:
+                # Move the recently accessed item to the end to mark it as recently used
+                graph = self._tokenize_cache.pop(smi)
+                self._tokenize_cache[smi] = graph
+            else:
+                try:
+                    graph = Mol2HeteroGraph(smi)
+                    # If cache is full, remove the least recently used item
+                    if len(self._tokenize_cache) >= self.max_cache_size:
+                        removed_smi, _ = self._tokenize_cache.popitem(
+                            last=False)
+                        # Optionally, log or print which SMILES was removed
+                        # print(f"Cache full. Removed least recently used SMILES: {removed_smi}")
+                    self._tokenize_cache[smi] = graph  # Add new item to cache
+                except Exception as e:
+                    raise ValueError(
+                        f"Error processing SMILES string: {smi}. {e}")
+            graphs.append(graph)
         return graphs
 
     def extract_atom_fragment_embedding(
@@ -140,7 +159,7 @@ class PepLandFeatureExtractor(nn.Module):
                                       dgl.DGLHeteroGraph]) -> torch.Tensor:
         """ Extract the atom and fragment embedding from the model
             args:
-                input_smiles: List of SMILES strings
+                input_smiles: List of SMILES strings or DGL graphs
             return:
                 atom_embeds: torch.Tensor
                 frag_embeds: torch.Tensor
@@ -150,6 +169,7 @@ class PepLandFeatureExtractor(nn.Module):
                 atom_embeds.shape == [2, 30, 300]
                 frag_embeds.shape == [2, 300]
         """
+
         if isinstance(input_smiles, str):
             input_smiles = [input_smiles]
 
@@ -197,12 +217,11 @@ class PepLandFeatureExtractor(nn.Module):
         """
         atom_rep, frag_rep = self.extract_atom_fragment_embedding(input_smiles)
 
-        # if set atom index, only return the atom embedding with the index
-        if atom_index:
+        # If atom_index is set, only return the atom embedding with the index
+        if atom_index is not None:
             pep_embeds = atom_rep[:, atom_index]
         else:
-            # if not set atom index, return the whole peptide embedding (atom + fragment)
-
+            # If not set atom index, return the whole peptide embedding (atom + fragment)
             if self.pooling_layer is not None:
                 if isinstance(self.pooling_layer, Node_GRU):
                     embed = self.pooling_layer(atom_rep, frag_rep)

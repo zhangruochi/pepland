@@ -7,7 +7,7 @@
 # Author: Ruochi Zhang
 # Email: zrc720@gmail.com
 # -----
-# Last Modified: Thu Nov 28 2024
+# Last Modified: Tue Dec 03 2024
 # Modified By: Ruochi Zhang
 # -----
 # Copyright (c) 2024 Bodkin World Domination Enterprises
@@ -56,8 +56,7 @@ def load_model(model_path):
     # from mlm.pepland.model.model import PharmHGT
     sys.path.insert(0, os.path.join(model_path, "code"))
     print("loading model from : {}".format(model_path))
-    model = mlflow.pytorch.load_model(model_path)
-    model.eval()
+    model = mlflow.pytorch.load_model(model_path, map_location="cpu")
     return model
 
 
