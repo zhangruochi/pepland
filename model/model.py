@@ -343,15 +343,12 @@ class PharmHGT(nn.Module):
         # junction view
         self.w_junc = nn.Linear(atom_dim + pharm_dim, hid_dim)
 
-        ## define the view during massage passing
-        # self.mp = MVMP(msg_func=add_attn,hid_dim=hid_dim,depth=self.depth,view='aj',suffix='h',act=self.act)
         self.mp = MVMP(msg_func=add_attn,
                        hid_dim=hid_dim,
                        depth=self.depth,
                        view='apj',
                        suffix='h',
                        act=self.act)
-        # self.mp_junc = MVMP(msg_func=add_attn,hid_dim=hid_dim,depth=self.depth,view='apj',suffix='j',act=self.act)
 
         ## readout
         self.readout = Node_GRU(hid_dim)

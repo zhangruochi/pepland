@@ -7,7 +7,7 @@
 # Author: Ruochi Zhang
 # Email: zrc720@gmail.com
 # -----
-# Last Modified: Tue Dec 03 2024
+# Last Modified: Wed Dec 04 2024
 # Modified By: Ruochi Zhang
 # -----
 # Copyright (c) 2024 Bodkin World Domination Enterprises
@@ -126,8 +126,10 @@ class PepLandFeatureExtractor(nn.Module):
         self.pooling_layer = pooling_layer
 
         self.max_cache_size = 100000  # Set the maximum cache size
-        self._tokenize_cache = OrderedDict(
-        )  # Initialize the cache as an OrderedDict
+
+        # Initialize the cache as an OrderedDict
+        # key: SMILES string, value: DGLHeteroGraph
+        self._tokenize_cache = OrderedDict()
 
     def tokenize(self, input_smiles: List[str]) -> List:
         input_smiles = to_canonical_smiles(input_smiles)
@@ -279,8 +281,8 @@ class PropertyPredictor(nn.Module):
         return self.feature_model.tokenize(input_molecules)
 
     def forward(
-            self, input_molecules: Union[List[str],
-                                         dgl.DGLHeteroGraph]) -> torch.Tensor:
+        self, input_molecules: Union[List[str], List[dgl.DGLHeteroGraph]]
+    ) -> torch.Tensor:
         """ args:
             input_molecules: List of SMILES strings or dgl.DGLHeteroGraph
             return: torch.Tensor
