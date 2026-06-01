@@ -1,0 +1,1 @@
+nohup /root/autodl-tmp/envs/pepland/bin/python -u train_supervised.py > train_supervised_sif.log 2>&1 &

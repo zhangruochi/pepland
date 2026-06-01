@@ -1,0 +1,140 @@
+[Config] task=SGF train_csv=filtered_csv/Train_sgf.csv test_csv=filtered_csv/Test_sgf.csv time_col=SGF_minutes threshold=250
+[Data] task=SGF split=train source=filtered_csv/Train_sgf.csv processed=outputs/processed_supervised_csv/sgf_train_threshold_250.csv time_col=SGF_minutes threshold=250 total=307 pos=99 neg=208
+[Data] task=SGF split=test source=filtered_csv/Test_sgf.csv processed=outputs/processed_supervised_csv/sgf_test_threshold_250.csv time_col=SGF_minutes threshold=250 total=95 pos=22 neg=73
+run 0 epoch 000 train_loss 0.6013 valid_acc 0.6667 valid_auprc 0.4948 valid_f1 0.0000
+run 0 epoch 001 train_loss 0.5998 valid_acc 0.6667 valid_auprc 0.4948 valid_f1 0.0000
+run 0 epoch 002 train_loss 0.6044 valid_acc 0.6667 valid_auprc 0.4948 valid_f1 0.0000
+run 0 epoch 003 train_loss 0.5880 valid_acc 0.6667 valid_auprc 0.4948 valid_f1 0.0000
+run 0 epoch 004 train_loss 0.5726 valid_acc 0.6667 valid_auprc 0.5012 valid_f1 0.0000
+run 0 epoch 005 train_loss 0.5630 valid_acc 0.6667 valid_auprc 0.5562 valid_f1 0.0000
+run 0 epoch 006 train_loss 0.5498 valid_acc 0.8000 valid_auprc 0.8311 valid_f1 0.6667
+run 0 epoch 007 train_loss 0.5183 valid_acc 0.9000 valid_auprc 0.9151 valid_f1 0.8235
+run 0 epoch 008 train_loss 0.4860 valid_acc 0.7000 valid_auprc 0.9151 valid_f1 0.1818
+run 0 epoch 009 train_loss 0.4678 valid_acc 0.7667 valid_auprc 0.9714 valid_f1 0.7407
+run 0 epoch 010 train_loss 0.4545 valid_acc 0.7000 valid_auprc 0.9188 valid_f1 0.1818
+run 0 epoch 011 train_loss 0.4114 valid_acc 0.7667 valid_auprc 0.9714 valid_f1 0.7407
+run 0 epoch 012 train_loss 0.4007 valid_acc 0.7667 valid_auprc 0.9909 valid_f1 0.7407
+run 0 epoch 013 train_loss 0.3917 valid_acc 0.9000 valid_auprc 0.9769 valid_f1 0.8235
+run 0 epoch 014 train_loss 0.3667 valid_acc 0.9000 valid_auprc 0.9567 valid_f1 0.8235
+run 0 epoch 015 train_loss 0.3580 valid_acc 0.7667 valid_auprc 0.9909 valid_f1 0.7407
+run 0 epoch 016 train_loss 0.3588 valid_acc 0.9333 valid_auprc 0.9909 valid_f1 0.8889
+run 0 epoch 017 train_loss 0.3292 valid_acc 0.9333 valid_auprc 0.9909 valid_f1 0.8889
+run 0 epoch 018 train_loss 0.3251 valid_acc 0.9333 valid_auprc 0.9909 valid_f1 0.8889
+run 0 epoch 019 train_loss 0.3060 valid_acc 0.9000 valid_auprc 0.9909 valid_f1 0.8235
+run 0 test acc 0.8421 auprc 0.7577 f1 0.6154 precision 0.7059 recall 0.5455
+[Data] task=SGF split=train source=filtered_csv/Train_sgf.csv processed=outputs/processed_supervised_csv/sgf_train_threshold_250.csv time_col=SGF_minutes threshold=250 total=307 pos=99 neg=208
+[Data] task=SGF split=test source=filtered_csv/Test_sgf.csv processed=outputs/processed_supervised_csv/sgf_test_threshold_250.csv time_col=SGF_minutes threshold=250 total=95 pos=22 neg=73
+run 1 epoch 000 train_loss 0.6201 valid_acc 0.6000 valid_auprc 0.6692 valid_f1 0.0000
+run 1 epoch 001 train_loss 0.6056 valid_acc 0.6000 valid_auprc 0.6605 valid_f1 0.0000
+run 1 epoch 002 train_loss 0.5955 valid_acc 0.6000 valid_auprc 0.6333 valid_f1 0.0000
+run 1 epoch 003 train_loss 0.5880 valid_acc 0.6000 valid_auprc 0.5834 valid_f1 0.0000
+run 1 epoch 004 train_loss 0.5781 valid_acc 0.6000 valid_auprc 0.5838 valid_f1 0.0000
+run 1 epoch 005 train_loss 0.5560 valid_acc 0.6000 valid_auprc 0.6527 valid_f1 0.0000
+run 1 epoch 006 train_loss 0.5253 valid_acc 0.6000 valid_auprc 0.6382 valid_f1 0.0000
+run 1 epoch 007 train_loss 0.4680 valid_acc 0.6333 valid_auprc 0.5878 valid_f1 0.4762
+run 1 epoch 008 train_loss 0.4299 valid_acc 0.6000 valid_auprc 0.5643 valid_f1 0.5000
+run 1 epoch 009 train_loss 0.3838 valid_acc 0.6667 valid_auprc 0.5779 valid_f1 0.5455
+run 1 epoch 010 train_loss 0.3571 valid_acc 0.6333 valid_auprc 0.5482 valid_f1 0.4211
+run 1 epoch 011 train_loss 0.3745 valid_acc 0.7333 valid_auprc 0.5877 valid_f1 0.7500
+run 1 epoch 012 train_loss 0.4193 valid_acc 0.6333 valid_auprc 0.5807 valid_f1 0.4211
+run 1 epoch 013 train_loss 0.3230 valid_acc 0.6333 valid_auprc 0.5949 valid_f1 0.5217
+run 1 epoch 014 train_loss 0.3126 valid_acc 0.7667 valid_auprc 0.5984 valid_f1 0.7742
+run 1 epoch 015 train_loss 0.3342 valid_acc 0.7667 valid_auprc 0.5984 valid_f1 0.7586
+run 1 epoch 016 train_loss 0.3768 valid_acc 0.6000 valid_auprc 0.5917 valid_f1 0.2500
+run 1 epoch 017 train_loss 0.3582 valid_acc 0.7667 valid_auprc 0.6017 valid_f1 0.7586
+run 1 epoch 018 train_loss 0.2935 valid_acc 0.6333 valid_auprc 0.6017 valid_f1 0.4211
+run 1 epoch 019 train_loss 0.2816 valid_acc 0.6333 valid_auprc 0.6017 valid_f1 0.5217
+run 1 test acc 0.8526 auprc 0.7128 f1 0.7308 precision 0.6333 recall 0.8636
+[Data] task=SGF split=train source=filtered_csv/Train_sgf.csv processed=outputs/processed_supervised_csv/sgf_train_threshold_250.csv time_col=SGF_minutes threshold=250 total=307 pos=99 neg=208
+[Data] task=SGF split=test source=filtered_csv/Test_sgf.csv processed=outputs/processed_supervised_csv/sgf_test_threshold_250.csv time_col=SGF_minutes threshold=250 total=95 pos=22 neg=73
+run 2 epoch 000 train_loss 0.6246 valid_acc 0.8000 valid_auprc 0.5321 valid_f1 0.0000
+run 2 epoch 001 train_loss 0.6270 valid_acc 0.8000 valid_auprc 0.5526 valid_f1 0.0000
+run 2 epoch 002 train_loss 0.6138 valid_acc 0.8000 valid_auprc 0.5452 valid_f1 0.0000
+run 2 epoch 003 train_loss 0.5985 valid_acc 0.8000 valid_auprc 0.6841 valid_f1 0.0000
+run 2 epoch 004 train_loss 0.5897 valid_acc 0.8000 valid_auprc 0.6452 valid_f1 0.0000
+run 2 epoch 005 train_loss 0.5618 valid_acc 0.8000 valid_auprc 0.7014 valid_f1 0.0000
+run 2 epoch 006 train_loss 0.5352 valid_acc 0.8000 valid_auprc 0.7163 valid_f1 0.6250
+run 2 epoch 007 train_loss 0.4775 valid_acc 0.7667 valid_auprc 0.6913 valid_f1 0.6316
+run 2 epoch 008 train_loss 0.4538 valid_acc 0.7667 valid_auprc 0.7794 valid_f1 0.6316
+run 2 epoch 009 train_loss 0.4355 valid_acc 0.7667 valid_auprc 0.7659 valid_f1 0.6316
+run 2 epoch 010 train_loss 0.4189 valid_acc 0.8333 valid_auprc 0.6898 valid_f1 0.2857
+run 2 epoch 011 train_loss 0.3759 valid_acc 0.8667 valid_auprc 0.7120 valid_f1 0.6000
+run 2 epoch 012 train_loss 0.3577 valid_acc 0.8000 valid_auprc 0.7120 valid_f1 0.0000
+run 2 epoch 013 train_loss 0.3417 valid_acc 0.8667 valid_auprc 0.7236 valid_f1 0.6000
+run 2 epoch 014 train_loss 0.3538 valid_acc 0.8667 valid_auprc 0.7312 valid_f1 0.7143
+run 2 epoch 015 train_loss 0.3592 valid_acc 0.7667 valid_auprc 0.7403 valid_f1 0.6316
+run 2 epoch 016 train_loss 0.4397 valid_acc 0.8667 valid_auprc 0.7867 valid_f1 0.6000
+run 2 epoch 017 train_loss 0.3355 valid_acc 0.8333 valid_auprc 0.7792 valid_f1 0.4444
+run 2 epoch 018 train_loss 0.3240 valid_acc 0.8333 valid_auprc 0.7867 valid_f1 0.6154
+run 2 epoch 019 train_loss 0.3127 valid_acc 0.8333 valid_auprc 0.7867 valid_f1 0.4444
+run 2 test acc 0.8105 auprc 0.7199 f1 0.6087 precision 0.5833 recall 0.6364
+[Data] task=SGF split=train source=filtered_csv/Train_sgf.csv processed=outputs/processed_supervised_csv/sgf_train_threshold_250.csv time_col=SGF_minutes threshold=250 total=307 pos=99 neg=208
+[Data] task=SGF split=test source=filtered_csv/Test_sgf.csv processed=outputs/processed_supervised_csv/sgf_test_threshold_250.csv time_col=SGF_minutes threshold=250 total=95 pos=22 neg=73
+run 3 epoch 000 train_loss 0.6266 valid_acc 0.6333 valid_auprc 0.7955 valid_f1 0.0000
+run 3 epoch 001 train_loss 0.6102 valid_acc 0.6333 valid_auprc 0.7955 valid_f1 0.0000
+run 3 epoch 002 train_loss 0.6046 valid_acc 0.6333 valid_auprc 0.8024 valid_f1 0.0000
+run 3 epoch 003 train_loss 0.6069 valid_acc 0.6333 valid_auprc 0.8024 valid_f1 0.0000
+run 3 epoch 004 train_loss 0.5876 valid_acc 0.6333 valid_auprc 0.8024 valid_f1 0.0000
+run 3 epoch 005 train_loss 0.5850 valid_acc 0.6333 valid_auprc 0.8024 valid_f1 0.0000
+run 3 epoch 006 train_loss 0.5790 valid_acc 0.6333 valid_auprc 0.9136 valid_f1 0.0000
+run 3 epoch 007 train_loss 0.5572 valid_acc 0.6333 valid_auprc 0.9290 valid_f1 0.0000
+run 3 epoch 008 train_loss 0.5260 valid_acc 0.6333 valid_auprc 0.9595 valid_f1 0.0000
+run 3 epoch 009 train_loss 0.4801 valid_acc 0.9000 valid_auprc 0.9709 valid_f1 0.8571
+run 3 epoch 010 train_loss 0.4074 valid_acc 0.8667 valid_auprc 0.9777 valid_f1 0.8462
+run 3 epoch 011 train_loss 0.3898 valid_acc 0.9000 valid_auprc 0.9860 valid_f1 0.8421
+run 3 epoch 012 train_loss 0.3725 valid_acc 0.9000 valid_auprc 0.9860 valid_f1 0.8421
+run 3 epoch 013 train_loss 0.3516 valid_acc 0.9000 valid_auprc 0.9860 valid_f1 0.8421
+run 3 epoch 014 train_loss 0.3357 valid_acc 0.9333 valid_auprc 0.9777 valid_f1 0.9167
+run 3 epoch 015 train_loss 0.4484 valid_acc 0.9000 valid_auprc 0.9842 valid_f1 0.8421
+run 3 epoch 016 train_loss 0.3633 valid_acc 0.8667 valid_auprc 0.9842 valid_f1 0.8462
+run 3 epoch 017 train_loss 0.3669 valid_acc 0.8667 valid_auprc 0.9860 valid_f1 0.7778
+run 3 epoch 018 train_loss 0.3643 valid_acc 0.9000 valid_auprc 0.9924 valid_f1 0.8421
+run 3 epoch 019 train_loss 0.3265 valid_acc 0.9333 valid_auprc 0.9924 valid_f1 0.9000
+run 3 test acc 0.8316 auprc 0.7601 f1 0.6667 precision 0.6154 recall 0.7273
+[Data] task=SGF split=train source=filtered_csv/Train_sgf.csv processed=outputs/processed_supervised_csv/sgf_train_threshold_250.csv time_col=SGF_minutes threshold=250 total=307 pos=99 neg=208
+[Data] task=SGF split=test source=filtered_csv/Test_sgf.csv processed=outputs/processed_supervised_csv/sgf_test_threshold_250.csv time_col=SGF_minutes threshold=250 total=95 pos=22 neg=73
+run 4 epoch 000 train_loss 0.6175 valid_acc 0.5000 valid_auprc 0.7792 valid_f1 0.0000
+run 4 epoch 001 train_loss 0.5855 valid_acc 0.5000 valid_auprc 0.7792 valid_f1 0.0000
+run 4 epoch 002 train_loss 0.5874 valid_acc 0.5000 valid_auprc 0.7737 valid_f1 0.0000
+run 4 epoch 003 train_loss 0.5752 valid_acc 0.5000 valid_auprc 0.7830 valid_f1 0.0000
+run 4 epoch 004 train_loss 0.5673 valid_acc 0.5000 valid_auprc 0.8402 valid_f1 0.0000
+run 4 epoch 005 train_loss 0.5466 valid_acc 0.5000 valid_auprc 0.9167 valid_f1 0.0000
+run 4 epoch 006 train_loss 0.5266 valid_acc 0.5000 valid_auprc 0.9250 valid_f1 0.0000
+run 4 epoch 007 train_loss 0.5006 valid_acc 0.6667 valid_auprc 0.9349 valid_f1 0.5000
+run 4 epoch 008 train_loss 0.4286 valid_acc 0.6333 valid_auprc 0.9328 valid_f1 0.4211
+run 4 epoch 009 train_loss 0.3818 valid_acc 0.8333 valid_auprc 0.9357 valid_f1 0.8276
+run 4 epoch 010 train_loss 0.3916 valid_acc 0.7333 valid_auprc 0.9424 valid_f1 0.6364
+run 4 epoch 011 train_loss 0.3905 valid_acc 0.7667 valid_auprc 0.9350 valid_f1 0.6957
+run 4 epoch 012 train_loss 0.3883 valid_acc 0.5000 valid_auprc 0.9350 valid_f1 0.0000
+run 4 epoch 013 train_loss 0.3442 valid_acc 0.9000 valid_auprc 0.9283 valid_f1 0.9091
+run 4 epoch 014 train_loss 0.3299 valid_acc 0.7667 valid_auprc 0.9350 valid_f1 0.7200
+run 4 epoch 015 train_loss 0.3084 valid_acc 0.7667 valid_auprc 0.9350 valid_f1 0.7407
+run 4 epoch 016 train_loss 0.3188 valid_acc 0.7667 valid_auprc 0.9350 valid_f1 0.7407
+run 4 epoch 017 train_loss 0.3412 valid_acc 0.7667 valid_auprc 0.9309 valid_f1 0.6957
+run 4 epoch 018 train_loss 0.3244 valid_acc 0.7667 valid_auprc 0.9370 valid_f1 0.6957
+run 4 epoch 019 train_loss 0.2998 valid_acc 0.7667 valid_auprc 0.9309 valid_f1 0.7586
+run 4 test acc 0.8421 auprc 0.7248 f1 0.6939 precision 0.6296 recall 0.7727
+
+Average over 5 runs:
+acc: 0.8358 +/- 0.0143
+auprc: 0.7350 +/- 0.0198
+f1: 0.6631 +/- 0.0464
+precision: 0.6335 +/- 0.0402
+recall: 0.7091 +/- 0.1098
+
+Unfound fragments: 15
+unfound_fragment C1CCOCC1
+unfound_fragment CC(C)F
+unfound_fragment CCC(C(=O)O)C(=O)O
+unfound_fragment CCCCC1=CCC=CC=C1
+unfound_fragment CCCCCCCCCCC
+unfound_fragment CCCCCCN
+unfound_fragment CCCCN=C(N)N
+unfound_fragment COC
+unfound_fragment Cc1ccc2[nH]ccc2c1
+unfound_fragment Cc1cccc2[nH]ccc12
+unfound_fragment Cc1cccc2cc[nH]c12
+unfound_fragment Cc1cnc[nH]1
+unfound_fragment Clc1cccc(Cl)c1
+unfound_fragment Clc1ccccc1Cl
+unfound_fragment SCS

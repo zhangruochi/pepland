@@ -1,5 +1,6 @@
 import os
 import sys
+from functools import lru_cache
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
@@ -28,23 +29,16 @@ from tokenizer.pep2fragments import get_cut_bond_idx, get_atom_parentAA
 fdefName = os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef')
 factory = ChemicalFeatures.BuildFeatureFactory(fdefName)
 
-# TODO change file path
-
-vocab_dict = {}
-frag = '258'
-path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-with open(os.path.join(path, 'tokenizer/vocabs/Vocab_SIZE' + frag + '.txt'),
-          'r') as f:
-    idx = 0
-    for line in f.readlines():
-        line = line.strip('\n')
-        try:
-            vocab_dict[line] = idx
-            idx += 1
-        except:
-            # print(line)
-            pass
-# print(f'vocab dict size {len(vocab_dict)}')
+@lru_cache(maxsize=None)
+def load_vocab_dict(frag):
+    vocab_dict = {}
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    vocab_path = os.path.join(root_dir, 'tokenizer', 'vocabs',
+                              'Vocab_SIZE' + str(frag) + '.txt')
+    with open(vocab_path, 'r') as f:
+        for idx, line in enumerate(f):
+            vocab_dict[line.strip('\n')] = idx
+    return vocab_dict
 
 
 def bond_features(bond: Chem.rdchem.Bond):
@@ -317,13 +311,10 @@ def atom_labels(atom):
     return atom_feature
 
 
-def get_pharm_label(frag: str):
+def get_pharm_label(frag: str, vocab_dict, unfound_fragments=None):
     if frag not in vocab_dict.keys():
-        print(f'Warning Unfound fragments {frag}')
-        pass
-    else:
-        # print(frag)
-        pass
+        if unfound_fragments is not None:
+            unfound_fragments.add(frag)
     return vocab_dict.get(frag, len(vocab_dict))
 
 
@@ -497,7 +488,9 @@ def Mol2HeteroGraph(mol,
                     masked_atom_indices=None,
                     num_atom_type=119,
                     num_edge_type=5,
-                    frag='258'):
+                    frag='258',
+                    unfound_fragments=None):
+    vocab_dict = load_vocab_dict(frag)
 
     # build graphs
     edge_types = [('a', 'b', 'a'), ('p', 'r', 'p'), ('a', 'j', 'p'),
@@ -561,7 +554,8 @@ def Mol2HeteroGraph(mol,
         atom_label_list.append(atom_labels(atom))
         atom_aa_label_list.append(atom2aa_label_map[idx.item()])
         f_atom.append(atom_features(atom))
-        if get_pharm_label(result_frag[result_ap[int(idx)]]) == 1:
+        if get_pharm_label(result_frag[result_ap[int(idx)]], vocab_dict,
+                           unfound_fragments) == 1:
             atom_ismask.append(False)
         else:
             atom_ismask.append(True)
@@ -581,7 +575,8 @@ def Mol2HeteroGraph(mol,
     pharm_label_list = []
     for k, v in result_p.items():
         frag = result_frag[k]
-        pharm_label_list.append(get_pharm_label(frag))
+        pharm_label_list.append(
+            get_pharm_label(frag, vocab_dict, unfound_fragments))
         # if get_pharm_label(frag) == 255:
         #     print(Chem.MolToSmiles(mol))
         #     print(break_bonds)
