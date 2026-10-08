@@ -522,14 +522,49 @@ def create_dataset(path,transform,mask_rate=0.1,mask_edge=False,shuffle=True):
 
 
 
-def make_loaders(ddp, dataset, world_size=0, global_rank=0, batch_size=512, num_workers=0, transform=None):
-    # dataset = create_dataloader('/mnt/data/xiuyuting/delaney-processed.csv',transform=transform,shuffle=True)
+def _data_directory(cfg):
+    """Resolve train.data_dir from the repository root, or cwd for exported code.
+
+    Missing/null data_dir defaults to data/. Absolute paths are used directly.
+    """
+    base = os.path.dirname(os.path.abspath(__file__))
+    while not (os.path.isdir(os.path.join(base, "tokenizer"))
+               and os.path.isdir(os.path.join(base, "configs"))):
+        parent = os.path.dirname(base)
+        if parent == base:
+            base = os.getcwd()
+            break
+        base = parent
+    train = getattr(cfg, "train", None)
+    value = getattr(train, "data_dir", None)
+    if value is None:
+        value = "data"
+    if not isinstance(value, (str, os.PathLike)):
+        raise TypeError("train.data_dir must be a path string or null")
+    value = os.fspath(value)
+    if not isinstance(value, str):
+        raise TypeError("train.data_dir must be a path string or null")
+    if not value.strip():
+        raise ValueError("train.data_dir must not be empty")
+    return os.path.abspath(os.path.join(base, os.path.expanduser(value)))
+
+
+
+def make_loaders(ddp, dataset, world_size=0, global_rank=0, batch_size=512, num_workers=0, transform=None, cfg=None):
     # train_dataset, valid_dataset, test_dataset = random_split(dataset, task_idx=None, null_value=0, frac_train=0.9,frac_valid=0.05, frac_test=0.05)
     # print(len(train_dataset),valid_dataset,test_dataset)
-    train_dataset = create_dataset('/mnt/data/xiuyuting/'+dataset+'/train.csv',transform=transform)
-    test_dataset = create_dataset('/mnt/data/xiuyuting/'+dataset+'/test.csv',transform=transform)
-    valid_dataset = create_dataset('/mnt/data/xiuyuting/'+dataset+'/valid.csv',transform=transform)
+    """Load split CSVs from cfg.train.data_dir; defaults to data/.
 
+    Relative paths use the repository root, or cwd for exported artifact code.
+    cfg is optional so existing positional calls remain valid.
+    """
+    data_dir = _data_directory(cfg)
+    train_dataset = create_dataset(os.path.join(data_dir, dataset, "train.csv"),
+                                   transform=transform)
+    test_dataset = create_dataset(os.path.join(data_dir, dataset, "test.csv"),
+                                   transform=transform)
+    valid_dataset = create_dataset(os.path.join(data_dir, dataset, "valid.csv"),
+                                   transform=transform)
     if ddp:
         train_smapler = DistributedSampler(train_dataset, num_replicas=world_size, rank=global_rank)
         valid_smapler = DistributedSampler(valid_dataset, num_replicas=world_size, rank=global_rank)
@@ -581,29 +616,25 @@ def main(cfg: DictConfig):
     
     batch_size = 32
     shuffle = True
-    # dataset = create_dataloader('/mnt/data/xiuyuting/delaney-processed.csv',shuffle=True)
     dataloaders = make_loaders(ddp=cfg.mode.ddp,
-                            dataset='/mnt/data/xiuyuting/test/',
+                            dataset=cfg.train.dataset,
                             world_size=0,
                             global_rank=0,
                             batch_size=cfg.train.batch_size,
                             num_workers=cfg.train.num_workers,
-                            transform=MaskAtom(num_atom_type=119, num_edge_type=5, mask_rate=cfg.train.mask_rate, mask_edge=cfg.train.mask_edge))    
+                            transform=MaskAtom(num_atom_type=119, num_edge_type=5, mask_rate=cfg.train.mask_rate, mask_edge=cfg.train.mask_edge), cfg=cfg)
     # print(cfg.train)
     
 
 if __name__=='__main__':
     import sys
     import json
-    path = '/mnt/data/xiuyuting/pep_atlas_uniparc_smiles_30_withnnaa.txt'
-    random_split(path,'/mnt/data/xiuyuting/pep_atlas_uniparc_smiles_30_withnnaa/',1)
-    # df = pd.read_csv('/mnt/data/xiuyuting/pep_atlas_uniparc_smiles_30_withnnaa/train.csv')
+    path = 'data/input.csv'
+    random_split(path,'data/splits',1)
     # print(df.head(10))
     # print(vocab_dict)
     # smiles= 'CC(C(=O)NCCC(=O)NCC(C)C(=O)NC)N'
     # print(GetFragmentFeats(Chem.MolFromSmiles(smiles)))
-    # path = '/mnt/data/public/seq_mpnn/dataset/pep_atlas_uniparc_smiles_30/raw/data.csv.gz'
-    # random_split(path,'/mnt/data/xiuyuting/pep_atlas_uniparc_smiles_30/',num_fold=1)
     # main()
     # for i,batch in enumerate(train_loader):
     #     print(batch.nodes['a'].data['label'])

@@ -12,6 +12,10 @@ from model import data
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = sorted((ROOT / "cpkt").glob("*/code/model/data.py"))
 ARTIFACTS += sorted((ROOT / "inference/cpkt").glob("*/code/model/data.py"))
+OLD_ARTIFACTS = sorted((ROOT / "cpkt").glob("*/code/model/data_f_a.py"))
+OLD_ARTIFACTS += sorted((ROOT / "cpkt").glob("*/code/model/data_v1.py"))
+OLD_ARTIFACTS += sorted((ROOT / "inference/cpkt").glob("*/code/model/data_f_a.py"))
+OLD_ARTIFACTS += sorted((ROOT / "inference/cpkt").glob("*/code/model/data_v1.py"))
 
 
 def config(value=None, missing=False, mode="pretrain"):
@@ -131,3 +135,49 @@ def test_artifact_repository_relative_paths(path, tmp_path, monkeypatch):
     loaded = loader(config("custom"), False, "example")
     assert loaded["valid"]["smiles"].tolist() == ["CCC"]
     assert all(Path(csv).parent == repo / "custom" / "example" for csv, _ in calls)
+
+
+@pytest.mark.parametrize("path", OLD_ARTIFACTS, ids=lambda p: str(p.relative_to(ROOT)))
+@pytest.mark.parametrize("kind", ["absolute", "relative", "null", "missing", "original"])
+def test_old_artifact_directory_contract(path, kind, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    (repo / "tokenizer").mkdir(parents=True)
+    (repo / "configs").mkdir()
+    custom = kind in ("absolute", "relative")
+    directory = repo / ("custom" if custom else "data")
+    write_splits(directory)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    loader, calls = artifact_loader(path, repo / path.relative_to(ROOT))
+    marker = object()
+    # Supply exactly the original seven positional arguments for both variants.
+    args = (False, "example", 0, 0, 1, 0, marker)
+    if kind == "original":
+        loaded = loader(*args)
+    else:
+        value = str(directory) if kind == "absolute" else "custom" if custom else None
+        loaded = loader(*args, cfg=config(value, missing=kind == "missing"))
+    assert loaded["train"]["smiles"].tolist() == ["CC"]
+    assert loaded["valid"]["smiles"].tolist() == ["CCC"]
+    assert loaded["test"]["smiles"].tolist() == ["CCCC"]
+    assert [Path(csv).name for csv, _ in calls] == ["train.csv", "test.csv", "valid.csv"]
+    assert all(Path(csv).parent == directory / "example" for csv, _ in calls)
+    assert all(transform is marker for _, transform in calls)
+
+
+@pytest.mark.parametrize("path", OLD_ARTIFACTS, ids=lambda p: str(p.relative_to(ROOT)))
+def test_old_exported_artifact_defaults_to_cwd(path, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_splits(tmp_path / "data")
+    loader, _ = artifact_loader(path, tmp_path / "export" / "model" / path.name)
+    loaded = loader(False, "example", 0, 0, 1, 0, None)
+    assert loaded["train"]["smiles"].tolist() == ["CC"]
+
+
+@pytest.mark.parametrize("path", OLD_ARTIFACTS, ids=lambda p: str(p.relative_to(ROOT)))
+@pytest.mark.parametrize("value,error", [(False, TypeError), ("", ValueError)])
+def test_old_artifact_invalid_directory(path, value, error):
+    loader, _ = artifact_loader(path, path)
+    with pytest.raises(error, match="train.data_dir"):
+        loader(False, "example", 0, 0, 1, 0, None, cfg=config(value))
