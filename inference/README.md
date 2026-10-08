@@ -149,10 +149,10 @@ with torch.no_grad():
 
 ## Notes
 
-- CUDA 11.3 compatible GPU required for GPU acceleration
+- GPU inference requires mutually compatible Torch, CUDA and DGL builds
 - For CPU-only inference, set `device_ids: []` in config
 - Model outputs 300-dimensional embeddings
-- The warning about PyTorch version mismatch (1.11.0 vs 1.11.0+cu113) can be safely ignored
+- The saved checkpoint records Torch 1.11.0; treat version warnings together with actual runtime validation, as described below
 
 ### Padding compatibility
 
@@ -169,8 +169,11 @@ peptides). Thus corrected average features equal old features times
 old padded features may need retraining/recalibration; do not silently switch their
 feature convention. Set `inference.padding_mode: legacy` in the config, or pass
 `padding_mode="legacy"` to `PepLandFeatureExtractor`/`PropertyPredictor`, to retain
-historical batch-dependent mean/max readout. Reproduce the old batch composition
-as well. Feature dimensions and pretrained backbone weights are unchanged.
+historical batch-dependent mean/max readout and absent-relation aggregation for a
+fresh model call. Reproduce the old batch composition as well. Both modes now
+avoid permanently removing a relation after an edgeless input. Default mode also
+preserves singleton node state when another graph contributes a relation absent
+from that molecule. Feature dimensions and pretrained backbone weights are unchanged.
 
 The API's `gru` readout also uses real lengths by default; `legacy` retains its
 old padded last-step behavior. It requires nonempty atom and fragment sequences.
@@ -192,8 +195,8 @@ CUDA_VISIBLE_DEVICES="" OMP_NUM_THREADS=1 python -m unittest discover -s test -p
 ```
 
 To explicitly run the bundled checkpoint and API checks in an environment with
-compatible Torch, DGL, MLflow, RDKit, OmegaConf, and IPython (imported by
-the tokenizer):
+compatible Torch, DGL, MLflow, RDKit and OmegaConf. IPython is optional
+and is used only for notebook rendering:
 
 ```sh
 PEPLAND_CHECKPOINT_TESTS=1 CUDA_VISIBLE_DEVICES="" OMP_NUM_THREADS=1 python -m unittest discover -s test -p test_checkpoint_readout.py -v
@@ -208,8 +211,11 @@ unchanged; its inference forward returns node embeddings before those modules.
 
 Verified on CPU with Python 3.11, Torch 2.2.2+cpu, DGL 1.1.3, MLflow 2.22.2,
 RDKit 2023.9.6 and NumPy 1.26.4. The checkpoint records Torch 1.11.0; its
-version warning was present during these successful tests. The original Torch
-1.11.0 environment and GPU execution were not verified. The GRU tests use the
+version warning was present during these successful tests. Historical-runtime
+and full GPU checkpoint inference remain unverified; pure Torch 1.11 readout and
+CUDA helper checks are recorded in the [repository validation matrix](../README.md#reproducible-validation).
+Run the complete suite with `PEPLAND_CHECKPOINT_TESTS=1 bash scripts/check.sh -q`
+from a Git checkout. The GRU tests use the
 real module with random parameters, PropertyPredictor uses an untrained head,
 and old-object fallback is tested by simulating missing attributes rather than
 loading a historical full serialized extractor artifact.
