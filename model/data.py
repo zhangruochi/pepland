@@ -748,6 +748,33 @@ def create_dataset(cfg,
     return dataset
 
 
+def _data_directory(cfg):
+    """Resolve train.data_dir from the repository root, or cwd for exported code.
+
+    Missing/null data_dir defaults to data/. Absolute paths are used directly.
+    """
+    base = os.path.dirname(os.path.abspath(__file__))
+    while not (os.path.isdir(os.path.join(base, "tokenizer"))
+               and os.path.isdir(os.path.join(base, "configs"))):
+        parent = os.path.dirname(base)
+        if parent == base:
+            base = os.getcwd()
+            break
+        base = parent
+    train = getattr(cfg, "train", None)
+    value = getattr(train, "data_dir", None)
+    if value is None:
+        value = "data"
+    if not isinstance(value, (str, os.PathLike)):
+        raise TypeError("train.data_dir must be a path string or null")
+    value = os.fspath(value)
+    if not isinstance(value, str):
+        raise TypeError("train.data_dir must be a path string or null")
+    if not value.strip():
+        raise ValueError("train.data_dir must not be empty")
+    return os.path.abspath(os.path.join(base, os.path.expanduser(value)))
+
+
 def make_loaders(cfg,
                  ddp,
                  dataset,
@@ -756,24 +783,19 @@ def make_loaders(cfg,
                  batch_size=512,
                  num_workers=0,
                  transform=None):
+    """Load train/test/valid CSVs under train.data_dir/<dataset>.
+
+    Defaults to data/; relative paths use the repository root, or cwd when
+    running exported artifact code outside a repository.
+    """
     if ddp and (world_size <= 0 or not 0 <= global_rank < world_size):
         raise ValueError("ddp requires positive world_size and 0 <= global_rank < world_size")
-    # dataset = create_dataloader('/mnt/data/xiuyuting/delaney-processed.csv',transform=transform,shuffle=True)
-    # train_dataset, valid_dataset, test_dataset = random_split(dataset, task_idx=None, null_value=0, frac_train=0.9,frac_valid=0.05, frac_test=0.05)
-    # print(len(train_dataset),valid_dataset,test_dataset)
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # prefix = os.path.join(path, 'data/')
-    train_dataset = create_dataset(cfg,
-                                   os.path.join(root_dir, "data", dataset,
-                                                'train.csv'),
+    data_dir = _data_directory(cfg)
+    train_dataset = create_dataset(cfg, os.path.join(data_dir, dataset, "train.csv"),
                                    transform=transform)
-    test_dataset = create_dataset(cfg,
-                                  os.path.join(root_dir, "data", dataset,
-                                               'test.csv'),
-                                  transform=transform)
-    valid_dataset = create_dataset(cfg,
-                                   os.path.join(root_dir, "data", dataset,
-                                                'valid.csv'),
+    test_dataset = create_dataset(cfg, os.path.join(data_dir, dataset, "test.csv"),
+                                   transform=transform)
+    valid_dataset = create_dataset(cfg, os.path.join(data_dir, dataset, "valid.csv"),
                                    transform=transform)
     print('train:', len(train_dataset))
     if ddp:
@@ -862,8 +884,6 @@ if __name__ == '__main__':
     # path = 'data/nnaa.csv'
     # random_split(path,'data/nnaa',1)
 
-    # path = '/home/april/pep_chembert/data/pep_atlas_uniparc_smiles_30_withnnaa.txt'
-    #random_split(path,'/home/april/fragmpnn/data/pep_atlas_uniparc_smiles_30_withnnaa',1)
 
     # seq = 'A'
     # smiles = 'CC(C)C[C@H](NC(=O)[C@@H]1CCCN1C(=O)[C@@H](N)CC(N)=O)C(=O)N[C@@H](Cc1ccc(O)cc1)C(=O)N[C@@H](CS)C(=O)N[C@@H](CCC(=O)O)C(=O)N[C@@H](CO)C(=O)N[C@H](C(=O)N[C@@H](Cc1c[nH]cn1)C(=O)O)C(C)C'
