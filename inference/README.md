@@ -48,17 +48,12 @@ python inference_pepland.py
 - **Peptide Embedding**: Shape `(N, 300)` where N is the number of input SMILES
 - **Atom Embedding**: If `atom_index` is set, returns embedding for specific atom position
 
-## Environment Details
+## Environment
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| Python | 3.8 | Runtime |
-| PyTorch | 1.11.0+cu113 | Deep Learning |
-| DGL | 0.9.1 (CUDA 11.3) | Graph Neural Networks |
-| RDKit | 2024.x | Molecule Processing |
-| MLflow | 1.30.0 | Model Loading |
-| OmegaConf | 2.2.x | Configuration |
-| scikit-learn | 1.3.x | Model utilities |
+Use the [tested dependency combinations and installation commands](../README.md#reproducible-validation)
+for CPU, historical CPU, or CUDA inference. Torch, CUDA, DGL and GraphBolt
+versions must match; the original checkpoint's metadata alone does not specify
+a complete runtime.
 
 ## File Structure
 
@@ -209,18 +204,11 @@ GRU lengths. They skip unless explicitly enabled; a skip is not checkpoint
 verification. The bundled checkpoint's internal pretrained readout modules are
 unchanged; its inference forward returns node embeddings before those modules.
 
-Verified on CPU with Python 3.11, Torch 2.2.2+cpu, DGL 1.1.3, MLflow 2.22.2,
-RDKit 2023.9.6 and NumPy 1.26.4. The checkpoint records Torch 1.11.0; its
-version warning was present during these successful tests. The actual bundled checkpoint/API and saved pretraining heads also passed eight
-CPU tests with Python 3.8.20, Torch 1.11.0+cpu, DGL 0.9.1 and MLflow 1.30.0.
-The original artifact does not pin DGL, so this establishes an empirically tested
-old-Torch combination rather than an exact original runtime. Three actual full-checkpoint GPU tests also passed on an H200 with Torch
-2.2.2+cu121, DGL 2.2.1+cu121 and TorchData 0.7.1, including CPU/GPU pre-pooling
-feature comparisons, singleton/mixed batches and all three saved reconstruction
-heads (`rtol=atol=1e-4`). The opt-in GPU runner and matching isolated installation
-commands are in the [repository validation matrix](../README.md#gpu-checkpoint-validation).
-Run the complete suite with `PEPLAND_CHECKPOINT_TESTS=1 bash scripts/check.sh -q`
-from a Git checkout. The GRU tests use the
-real module with random parameters, PropertyPredictor uses an untrained head,
-and old-object fallback is tested by simulating missing attributes rather than
-loading a historical full serialized extractor artifact.
+For pinned CPU, historical CPU and CUDA combinations and the complete test
+commands, see the [repository validation guide](../README.md#reproducible-validation).
+The GPU runner is opt-in and validates real CUDA checkpoint/API outputs;
+`scripts/check.sh` disables CUDA, so run GPU tests separately. The GRU tests use
+random parameters, PropertyPredictor uses an untrained head, and old-object
+fallback is simulated rather than loaded from a historical full serialized
+extractor. Trained historical property predictions and multi-process
+training/NCCL remain unverified.

@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
-###
-# File: /home/richard/projects/pepcorsser/models/core.py
-# Project: /home/richard/projects/biology_llm_platform/mlm/pepland/model
-# Created Date: Sunday, April 28th 2024, 12:03:00 am
-# Author: Ruochi Zhang
-# Email: zrc720@gmail.com
-# -----
-# Last Modified: Tue Dec 24 2024
-# Modified By: Ruochi Zhang
-# -----
 # Copyright (c) 2024 Bodkin World Domination Enterprises
 #
 # MIT License

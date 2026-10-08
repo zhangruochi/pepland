@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
-###
-# File: /home/richard/projects/pepland/data/eval/statistics.py
-# Project: /home/richard/projects/pepland/data/eval
-# Created Date: Thursday, July 18th 2024, 11:32:56 am
-# Author: Ruochi Zhang
-# Email: zrc720@gmail.com
-# -----
-# Last Modified: Thu Jul 18 2024
-# Modified By: Ruochi Zhang
-# -----
 # Copyright (c) 2024 Bodkin World Domination Enterprises
 # 
 # MIT License

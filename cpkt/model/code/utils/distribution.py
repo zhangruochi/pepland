@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
-###
-# File: /root/CAMP/distribution.py
-# Project: /home/richard/projects/pepland/inference/cpkt/model/code/utils
-# Created Date: Saturday, July 30th 2022, 3:50:55 pm
-# Author: Ruochi Zhang
-# Email: zrc720@gmail.com
-# -----
-# Last Modified: Sat Dec 23 2023
-# Modified By: Ruochi Zhang
-# -----
 # Copyright (c) 2022 Bodkin World Domination Enterprises
 #
 # MIT License
