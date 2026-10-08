@@ -45,7 +45,7 @@ The multi-view feature representation framework of PepLand. (a) A peptide molecu
 
 ```shell
 conda env create -f environment.yaml
-conda activate multiview
+conda activate peppi
 ```
 
 ## Inference using pretrained PepLand
@@ -62,11 +62,52 @@ features should explicitly use `padding_mode: legacy` or be recalibrated/retrain
 See [padding compatibility and batch inference](inference/README.md#padding-compatibility)
 for the feature scale change, API options, and verification commands.
 
+### Python API
+
+From the directory containing a checkout named `pepland`, import the package
+implementation in `model/core.py` (the parent directory must be on `PYTHONPATH`):
+
+```python
+import torch
+from pepland.model.core import PepLandFeatureExtractor
+
+extractor = PepLandFeatureExtractor(
+    model_path="pepland/inference/cpkt/model", pooling="avg", padding_mode="exclude"
+)
+extractor.eval()
+with torch.no_grad():
+    embeddings = extractor(["NCC(=O)O", "NCC(=O)NCC(=O)O"])
+print(embeddings.shape)  # (2, 300)
+```
+
+`PropertyPredictor` is also defined in `model/core.py`; constructing a new
+prediction head does not supply trained property-prediction weights.
+
 ## Data 
 
 - We release all the evaluation datasets we collected in the `data/eval` folder.
 - The `data` folder contains the pretraining and further training example data. We used the SMILES representation of peptides in the two steps of pretraining.  
 - You can also use your own data by modifying the `train.csv`, `test.csv`, and `valid.csv` files in the `data` folder.
+Pretraining CSVs require a lowercase `smiles` column containing valid molecule
+SMILES, with one molecule per row. Self-supervised pretraining uses molecular
+structure and masking targets; extra property/label columns are ignored by this
+loader. For example:
+
+```csv
+smiles
+NCC(=O)O
+NCC(=O)NCC(=O)O
+```
+
+The checked-in training files are examples. For access to the two-phase training
+data, see the [maintainer's public data announcement](https://github.com/zhangruochi/pepland/issues/9#issuecomment-3222235334).
+External data contents and availability are not validated by the repository tests.
+
+Set `train.data_dir` to the directory containing the dataset subdirectories
+below. An absolute path is used directly; a relative path is resolved against
+the repository root. Missing or null `data_dir` uses `data`. For exported model
+code outside a checkout, relative paths use the current working directory.
+
 - The data is organized as follows:
 
 ```
@@ -128,6 +169,15 @@ train.model = PharmHGT # HGT
 python pretrain_masking.py
 ```
 
+## Fragment vocabulary
+
+An unlisted fragment receives the fallback label `len(vocab_dict)`; its molecular
+descriptor features are still computed. The vocabulary labels and reconstruction
+head outputs are tied to the vocabulary used in pretraining. Replacing a vocabulary
+text file with new entries or a different ordering does not adapt a saved head:
+keep the checkpoint vocabulary for inference, or explicitly rebuild and train
+compatible targets and heads for a new vocabulary.
+
 ## AdaFrag
 
 1. Navigate to the tokenizer directory
@@ -173,10 +223,20 @@ Draw.MolToImage(mol, highlightBonds=highlight_bonds, size = (1000, 1000))
 ![Adafrag](./doc/Adafrag.png)
 ## Reproducible validation
 
-Use an isolated environment; the historical training specification in
-`environment.yaml` remains unchanged. The modern CPU validation environment uses
-Python 3.11, Torch 2.2.2, DGL 1.1.3, RDKit 2023.9.6 and MLflow 2.22.2. From a Git checkout at the
-repository root, install packages from PyPI and the official PyTorch CPU index:
+Use an isolated environment. The pinned combinations below have been tested with
+the bundled representation checkpoint and saved pretraining reconstruction heads;
+choose mutually compatible Torch and DGL builds.
+
+| Runtime | Python | Torch | DGL | MLflow | NumPy |
+|---|---|---|---|---|---|
+| CPU | 3.11 | 2.2.2+cpu | 1.1.3 | 2.22.2 | 1.26.4 |
+| Historical CPU | 3.8 | 1.11.0+cpu | 0.9.1 | 1.30.0 | 1.23.5 |
+| CUDA 12.1 | 3.11 | 2.2.2+cu121 | 2.2.1+cu121 | 2.22.2 | 1.26.4 |
+
+RDKit 2023.9.6 is used in each combination; the GPU pairing also needs
+TorchData 0.7.1. The saved artifact does not pin DGL, so the historical CPU
+combination is not an exact reconstruction of its original runtime.
+From the repository root, install from PyPI and the official PyTorch CPU index:
 
 ```bash
 python3.11 -m venv .venv
@@ -218,23 +278,16 @@ batched results within the same pipeline.
 Consult [inference documentation](inference/README.md) for the supported API and
 configuration.
 
-Validation boundaries: modern CPU tests are executed locally; no GitHub CI is
-configured. Eight actual bundled checkpoint/API and saved reconstruction-head tests also
-passed with Python 3.8.20, Torch 1.11.0+cpu, DGL 0.9.1, MLflow 1.30.0,
-NumPy 1.23.5, RDKit 2023.9.6 and scikit-learn 1.3.2. This is a tested old-Torch
-combination; the artifact does not pin DGL, so it is not an exact reconstruction
-of its original runtime. Nine pure readout tests also passed with Torch 1.11.0.
-Full bundled checkpoint/API inference and all three saved reconstruction heads
-passed three GPU tests on an idle H200 with Python 3.11.16, Torch 2.2.2+cu121,
-DGL 2.2.1+cu121 and TorchData 0.7.1. Tests use eval/no-grad, fresh graphs and
-CPU/GPU comparisons (`rtol=atol=1e-4`), including pre-pooling features,
-singleton/mixed orders and sizes, edgeless inputs, avg/max and legacy readout.
-Peak allocated GPU memory was about 50.2 MiB. Earlier Torch 2.7.1+cu128 checks
-covered only readout/GRU/reverse-edge helpers; their GraphBolt binary mismatch
-was resolved for full inference by a separate matching Torch/DGL environment,
-without modifying another environment or bypassing GraphBolt loading.
-Trained downstream property checkpoint predictions and multi-process training
-remain unverified. No GitHub CI is configured.
+Validation covers real bundled checkpoint/API inference and saved reconstruction
+heads in eval/no-grad mode with fresh graphs. It includes pre-pooling features,
+singleton/mixed batch sizes and orders, edgeless inputs, and avg/max/legacy
+readout. GPU comparisons allow numerical rounding (`rtol=atol=1e-4`).
+PropertyPredictor tests use an untrained head, GRU tests use random parameters,
+and old-object fallback tests simulate missing attributes. A trained historical
+property checkpoint and a historical full serialized feature extractor have not
+been validated. Multi-process training/NCCL has not been validated. No GitHub CI
+is configured; local commands below must actually run before treating their
+results as verification.
 
 ### Historical Torch checkpoint validation
 
@@ -262,7 +315,7 @@ PEPLAND_CHECKPOINT_TESTS=1 CUDA_VISIBLE_DEVICES="" OMP_NUM_THREADS=1 \
 
 ### GPU checkpoint validation
 
-Use a separate Linux x86_64 Python 3.11 environment with one idle CUDA GPU.
+Use a separate Linux x86_64 Python 3.11 environment with an available CUDA GPU.
 The tested Torch 2.2.2/CUDA 12.1 and DGL 2.2.1 pairing follows the
 [official DGL compatibility table](https://www.dgl.ai/pages/start.html) and
 [matching wheel index](https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html).

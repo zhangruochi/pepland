@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
-###
-# File: /home/richard/projects/biology_llm_platform/mlm/pepland/utils/commons.py
-# Project: /home/richard/projects/biology_llm_platform/mlm/pepland/utils
-# Created Date: Thursday, November 28th 2024, 10:42:24 am
-# Author: Ruochi Zhang
-# Email: zrc720@gmail.com
-# -----
-# Last Modified: Tue Dec 03 2024
-# Modified By: Ruochi Zhang
-# -----
 # Copyright (c) 2024 Bodkin World Domination Enterprises
 #
 # MIT License

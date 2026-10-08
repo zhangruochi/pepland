@@ -1,6 +1,6 @@
 {
 	"data": {
-		"path": "/mnt/data/xiuyuting/delaney-processed.csv",
+		"path": "data/esol.csv",
 		"task": "regression",
 		"target_names": ["measured log solubility in mols per litre"],
 		"batch_size": 3,

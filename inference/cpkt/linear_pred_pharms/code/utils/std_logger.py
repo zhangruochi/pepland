@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
-###
-# File: /root/CAMP/std_logger.py
-# Project: /home/richard/projects/CAMP
-# Created Date: Saturday, July 30th 2022, 3:51:24 pm
-# Author: Ruochi Zhang
-# Email: zrc720@gmail.com
-# -----
-# Last Modified: Sun Aug 28 2022
-# Modified By: Ruochi Zhang
-# -----
 # Copyright (c) 2022 Bodkin World Domination Enterprises
 #
 # MIT License

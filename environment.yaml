@@ -450,4 +450,3 @@ dependencies:
       - yarl==1.8.1
       - zc-lockfile==2.0
       - zipp==3.8.1
-prefix: /home/richard/miniconda3/envs/multiview

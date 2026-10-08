@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
-###
-# File: /home/richard/projects/biology_llm_platform/mlm/pepland/inference.py
-# Project: /home/richard/projects/biology_llm_platform/mlm/pepland
-# Created Date: Thursday, November 28th 2024, 10:05:57 am
-# Author: Ruochi Zhang
-# Email: zrc720@gmail.com
-# -----
-# Last Modified: Sun Dec 01 2024
-# Modified By: Ruochi Zhang
-# -----
 # Copyright (c) 2024 Bodkin World Domination Enterprises
 #
 # MIT License
