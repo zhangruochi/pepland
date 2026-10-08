@@ -393,6 +393,19 @@ def is_carbon_nitrogen_single_bond(mol, bond):
     return False
 
 
+def _unique_cut_bonds(bond_indices, atom_pairs):
+    """Keep the first cut for each bond, preserving its aligned atom pair."""
+    seen = set()
+    unique_indices = []
+    unique_pairs = []
+    for bond_index, atom_pair in zip(bond_indices, atom_pairs):
+        if bond_index not in seen:
+            seen.add(bond_index)
+            unique_indices.append(bond_index)
+            unique_pairs.append(atom_pair)
+    return unique_indices, unique_pairs
+
+
 def get_cut_bond_idx(mol, side_chain_cut = True):
     cut_bond_set = []
     cut_bond_atom_set = []
@@ -418,6 +431,11 @@ def get_cut_bond_idx(mol, side_chain_cut = True):
                         cut_bond_set.append(bond.GetIdx())
                         cut_bond_atom_set.append([bond.GetBeginAtom().GetIdx(), bond.GetEndAtom().GetIdx()])
     
+    # A shared atom may occur in multiple amide matches. RDKit requires
+    # unique bond IDs when fragmenting; keep endpoint pairs in the same order.
+    cut_bond_set, cut_bond_atom_set = _unique_cut_bonds(
+        cut_bond_set, cut_bond_atom_set)
+
     if not cut_bond_set:
         print('nothing to cut, not a peptide', Chem.MolToSmiles(mol))
         return [],[]
@@ -445,7 +463,7 @@ def get_cut_bond_idx(mol, side_chain_cut = True):
 
             
 
-    return cut_bond_set, cut_bond_atom_set
+    return _unique_cut_bonds(cut_bond_set, cut_bond_atom_set)
 
 
 
