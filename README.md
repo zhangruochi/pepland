@@ -83,6 +83,10 @@ print(embeddings.shape)  # (2, 300)
 `PropertyPredictor` is also defined in `model/core.py`; constructing a new
 prediction head does not supply trained property-prediction weights.
 
+For a minimal supervised workflow with a frozen backbone, see the
+[frozen embedding regression example](examples/README.md). This example is not
+a reproduction of the paper's downstream results.
+
 ## Data 
 
 - We release all the evaluation datasets we collected in the `data/eval` folder.
