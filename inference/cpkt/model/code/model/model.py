@@ -11,11 +11,12 @@ from model.util import get_func
 
 # dgl graph utils
 def reverse_edge(tensor):
+    """Swap paired directed edges, including empty tensors on any device."""
     n = tensor.size(0)
-    assert n%2 ==0
-    delta = torch.ones(n).type(torch.long)
-    delta[torch.arange(1,n,2)] = -1
-    return tensor[delta+torch.tensor(range(n))]
+    if n % 2:
+        raise ValueError("directed edges must be stored in reverse pairs")
+    return tensor[torch.arange(n, device=tensor.device) ^ 1]
+
 
 def del_reverse_message(edge,field):
     """for g.apply_edges"""
@@ -154,6 +155,7 @@ class MVMP(nn.Module):
         self.view = view
         self.depth = depth
         self.suffix = suffix
+        self.empty_relation_mode = "per_graph"
         self.msg_func = msg_func
         self.act = act
         self.homo_etypes = [('a','b','a')]
@@ -193,12 +195,36 @@ class MVMP(nn.Module):
 
     def forward(self,bg):
         suffix = self.suffix
-        if  not bg.edges[('p','r','p')].data['x'].numel() and len(self.homo_etypes)>1:
-            self.homo_etypes.remove(('p','r','p'))
+        homo_etypes = list(self.homo_etypes)
+        if  not bg.edges[('p','r','p')].data['x'].numel() and len(homo_etypes)>1:
+            homo_etypes.remove(('p','r','p'))
+
+        def update_homogeneous(update_funcs):
+            # An absent relation is skipped for a singleton. DGL instead zeros
+            # its node field if another graph contributes that relation. Keep
+            # the singleton value for whole graphs lacking incoming relations;
+            # nodes of an edge-present graph retain DGL's historical behavior.
+            preserved = {}
+            if getattr(self, "empty_relation_mode", "legacy") == "per_graph":
+                for ntype in {etype[2] for etype in update_funcs}:
+                    edge_counts = torch.zeros(bg.batch_size, device=bg.device, dtype=torch.long)
+                    for etype in update_funcs:
+                        if etype[2] == ntype:
+                            edge_counts += bg.batch_num_edges(etype).to(edge_counts.device)
+                    mask = torch.repeat_interleave(edge_counts == 0,
+                                                   bg.batch_num_nodes(ntype).to(edge_counts.device))
+                    field = f"f_{suffix}"
+                    preserved[ntype] = (mask, bg.nodes[ntype].data[field])
+            bg.multi_update_all(update_funcs, cross_reducer="sum")
+            for ntype, (mask, previous) in preserved.items():
+                field = f"f_{suffix}"
+                bg.nodes[ntype].data[field] = torch.where(
+                    mask[:, None], previous, bg.nodes[ntype].data[field])
+
         for ntype in self.node_types:
             if ntype != 'junc':
                 bg.apply_nodes(self.init_node,ntype=ntype)
-        for etype in self.homo_etypes:
+        for etype in homo_etypes:
             bg.apply_edges(self.init_edge,etype=etype)
 
         if 'j' in self.view:
@@ -208,13 +234,13 @@ class MVMP(nn.Module):
         # 对每个边类型调用 apply_custom_copy_src
 
         
-        update_funcs = {e:(fn.copy_e('h','m'), partial(self.msg_func, attn=self.attn[''.join(e)], field=f'f_{suffix}')) for e in self.homo_etypes }
+        update_funcs = {e:(fn.copy_e('h','m'), partial(self.msg_func, attn=self.attn[''.join(e)], field=f'f_{suffix}')) for e in homo_etypes }
         # update_funcs.update({e:(fn.copy_src(f'f_junc_{suffix}','mail'),partial(self.msg_func, attn=self.attn[''.join(e)], field=f'f_junc_{suffix}')) for e in self.hetero_etypes})
         # update_funcs.update({e:(fn.u_mul_e(f'f_junc_{suffix}',1.0,'m'),partial(self.msg_func, attn=self.attn[''.join(e)], field=f'f_junc_{suffix}')) for e in self.hetero_etypes})
 
         # message passing
         for i in range(self.depth-1):
-            bg.multi_update_all(update_funcs,cross_reducer='sum')
+            update_homogeneous(update_funcs)
             for e in self.hetero_etypes:
                 apply_custom_copy_src(
                     bg,
@@ -223,14 +249,14 @@ class MVMP(nn.Module):
                     out_field='m',
                     reduce_func=partial(self.msg_func, attn=self.attn[''.join(e)], field=f'f_junc_{suffix}')
                 )
-            for edge_type in self.homo_etypes:
+            for edge_type in homo_etypes:
                 bg.edges[edge_type].data['rev_h']=reverse_edge(bg.edges[edge_type].data['h'])
                 bg.apply_edges(partial(del_reverse_message,field=f'f_{suffix}'),etype=edge_type)
                 bg.apply_edges(partial(self.update_edge,layer=self.mp_list[''.join(edge_type)][i]), etype=edge_type)
 
         # last update of node feature
-        update_funcs = {e:(fn.copy_e('h','mail'),partial(self.update_node,field=f'f_{suffix}',layer=self.node_last_layer[e[0]])) for e in self.homo_etypes}
-        bg.multi_update_all(update_funcs,cross_reducer='sum')
+        update_funcs = {e:(fn.copy_e('h','mail'),partial(self.update_node,field=f'f_{suffix}',layer=self.node_last_layer[e[0]])) for e in homo_etypes}
+        update_homogeneous(update_funcs)
 
         # last update of junc feature
         # bg.multi_update_all({e:(fn.copy_src(f'f_junc_{suffix}','mail'),

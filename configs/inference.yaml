@@ -2,8 +2,9 @@ mode:
   ddp: false
 
 inference:
-  device_ids: [0]
-  data: '../data/example.smi'
+  device_ids: [] #CPU default; set [0] to explicitly use GPU
+  data: './data/example.smi'
   model_path: "./cpkt/model"
   pool: avg #avg or max
+  padding_mode: exclude #exclude real-node pooling; legacy includes historical zero padding
   atom_index: false #false or index

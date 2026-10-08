@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from rdkit import Chem
 import torch
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset, IterableDataset
 import dgl
 import random
 from dgl.dataloading import GraphDataLoader
@@ -45,6 +45,10 @@ with open(os.path.join(path, 'tokenizer/vocabs/Vocab_SIZE' + frag + '.txt'),
             # print(line)
             pass
 # print(f'vocab dict size {len(vocab_dict)}')
+
+
+# Seven bond fields plus six stereo categories and one unknown category.
+BOND_FDIM = 14
 
 
 def bond_features(bond: Chem.rdchem.Bond):
@@ -500,6 +504,8 @@ def Mol2HeteroGraph(mol,
                     frag='258'):
 
     # build graphs
+    if mol is None or mol.GetNumAtoms() == 0:
+        raise ValueError("molecule must be nonempty and valid")
     edge_types = [('a', 'b', 'a'), ('p', 'r', 'p'), ('a', 'j', 'p'),
                   ('p', 'j', 'a')]
     edges = {k: [] for k in edge_types}
@@ -609,7 +615,7 @@ def Mol2HeteroGraph(mol,
         f_bond.append(
             bond_features(mol.GetBondBetweenAtoms(src[i].item(),
                                                   dst[i].item())))
-    g.edges[('a', 'b', 'a')].data['x'] = torch.FloatTensor(f_bond)
+    g.edges[('a', 'b', 'a')].data['x'] = torch.FloatTensor(f_bond).reshape(-1, BOND_FDIM)
 
     f_reac = []
     # result_ap: Dict {atom_id:pharm_id}
@@ -627,7 +633,7 @@ def Mol2HeteroGraph(mol,
                 # this means pharmacophore A has more than 1 bonds with pharmacophore B
                 break
 
-    g.edges[('p', 'r', 'p')].data['x'] = torch.FloatTensor(f_reac)
+    g.edges[('p', 'r', 'p')].data['x'] = torch.FloatTensor(f_reac).reshape(-1, BOND_FDIM)
 
     return g
 
@@ -705,6 +711,31 @@ class MolGraphSet(IterableDataset):
         # return self.data_gen
 
 
+class DistributedMolGraphSet(Dataset):
+    """Map-style view for DistributedSampler, with masking applied on access."""
+
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.indices = []
+        if 'smiles' not in dataset.naa.columns:
+            raise ValueError("dataset must contain a smiles column")
+        for index, smiles in enumerate(dataset.naa['smiles']):
+            mol = Chem.MolFromSmiles(smiles) if isinstance(smiles, str) else None
+            if mol is None or mol.GetNumAtoms() == 0:
+                dataset.log("skipping invalid or empty molecule", smiles)
+            else:
+                self.indices.append(index)
+        if not self.indices:
+            raise ValueError("distributed dataset has no valid molecules")
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, index):
+        row = self.dataset.naa.iloc[[self.indices[index]]]
+        return next(self.dataset.get_data(row))
+
+
 def create_dataset(cfg,
                    path,
                    transform,
@@ -725,6 +756,8 @@ def make_loaders(cfg,
                  batch_size=512,
                  num_workers=0,
                  transform=None):
+    if ddp and (world_size <= 0 or not 0 <= global_rank < world_size):
+        raise ValueError("ddp requires positive world_size and 0 <= global_rank < world_size")
     # dataset = create_dataloader('/mnt/data/xiuyuting/delaney-processed.csv',transform=transform,shuffle=True)
     # train_dataset, valid_dataset, test_dataset = random_split(dataset, task_idx=None, null_value=0, frac_train=0.9,frac_valid=0.05, frac_test=0.05)
     # print(len(train_dataset),valid_dataset,test_dataset)
@@ -744,6 +777,9 @@ def make_loaders(cfg,
                                    transform=transform)
     print('train:', len(train_dataset))
     if ddp:
+        train_dataset = DistributedMolGraphSet(train_dataset)
+        valid_dataset = DistributedMolGraphSet(valid_dataset)
+        test_dataset = DistributedMolGraphSet(test_dataset)
         train_smapler = DistributedSampler(train_dataset,
                                            num_replicas=world_size,
                                            rank=global_rank)

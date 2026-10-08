@@ -1,12 +1,20 @@
 import os,re
 
 from rdkit import Chem
-from rdkit.Chem.Draw import IPythonConsole
+# Notebook rendering is optional; inference must not require IPython.
+try:
+    from rdkit.Chem.Draw import IPythonConsole
+except ImportError:
+    IPythonConsole = None
 from rdkit.Chem import  Draw
 from rdkit.Chem import rdChemReactions
 # from DrawSVG import DrawSVG
-from IPython.display import SVG
-IPythonConsole.ipython_useSVG = True
+try:
+    from IPython.display import SVG
+except ImportError:
+    SVG = None
+if IPythonConsole is not None:
+    IPythonConsole.ipython_useSVG = True
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem.BRICS import FindBRICSBonds

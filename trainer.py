@@ -15,7 +15,6 @@ from model.util import compute_accuracy
 from utils.std_logger import Logger
 from utils.utils import is_parallel
 
-# from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 from torch.distributed import ReduceOp
 
 
@@ -734,12 +733,32 @@ class Contextpred_Trainer(object):
             self.eval_epoch("test")
 
     def pool_func(self, x, batch, mode="sum"):
-        if mode == "sum":
-            return global_add_pool(x, batch)
-        elif mode == "mean":
-            return global_mean_pool(x, batch)
-        elif mode == "max":
-            return global_max_pool(x, batch)
+        """Pool node features by graph index without an optional PyG dependency."""
+        if mode not in ("sum", "mean", "max"):
+            raise ValueError("mode must be sum, mean, or max")
+        if x.ndim != 2 or batch.ndim != 1 or batch.numel() != x.size(0):
+            raise ValueError("expected node features [N, D] and graph indices [N]")
+        if batch.dtype != torch.long or batch.device != x.device:
+            raise ValueError("graph indices must be int64 on the feature device")
+        if batch.numel() == 0:
+            return x.new_zeros((0, x.size(1)))
+        if torch.any(batch < 0):
+            raise ValueError("graph indices must be nonnegative")
+        num_graphs = int(batch.max().item()) + 1
+        if mode == "max":
+            # Keep negative maxima and return zero for missing graph indices.
+            pooled = []
+            for index in range(num_graphs):
+                nodes = x[batch == index]
+                pooled.append(nodes.max(dim=0).values if nodes.size(0)
+                              else x.new_zeros(x.size(1)))
+            return torch.stack(pooled)
+        pooled = x.new_zeros((num_graphs, x.size(1)))
+        pooled.index_add_(0, batch, x)
+        if mode == "mean":
+            counts = torch.bincount(batch, minlength=num_graphs).to(x.dtype)
+            pooled = pooled / counts.clamp_min(1).unsqueeze(1)
+        return pooled
 
     def cycle_index(self, num, shift):
         arr = torch.arange(num) + shift

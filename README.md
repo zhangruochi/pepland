@@ -56,6 +56,12 @@ conda activate multiview
 python inference.py
 ```
 
+Average/max peptide readout defaults to `padding_mode: exclude`, pooling only
+real atom and fragment nodes. Existing downstream checkpoints trained with padded
+features should explicitly use `padding_mode: legacy` or be recalibrated/retrained.
+See [padding compatibility and batch inference](inference/README.md#padding-compatibility)
+for the feature scale change, API options, and verification commands.
+
 ## Data 
 
 - We release all the evaluation datasets we collected in the `data/eval` folder.
@@ -165,3 +171,127 @@ Draw.MolToImage(mol, highlightBonds=highlight_bonds, size = (1000, 1000))
 ```
 
 ![Adafrag](./doc/Adafrag.png)
+## Reproducible validation
+
+Use an isolated environment; the historical training specification in
+`environment.yaml` remains unchanged. The modern CPU validation environment uses
+Python 3.11, Torch 2.2.2, DGL 1.1.3, RDKit 2023.9.6 and MLflow 2.22.2. From a Git checkout at the
+repository root, install packages from PyPI and the official PyTorch CPU index:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.2.2
+python -m pip install --index-url https://pypi.org/simple \
+  numpy==1.26.4 dgl==1.1.3 rdkit==2023.9.6 mlflow==2.22.2 \
+  omegaconf==2.3.1 pandas==2.3.3 scipy==1.17.1 scikit-learn==1.9.1 tqdm==4.70.1
+python -m pip install --index-url https://pypi.org/simple -r requirements-dev.txt
+bash scripts/check.sh
+PEPLAND_CHECKPOINT_TESTS=1 bash scripts/check.sh
+```
+
+The script runs the complete pytest suite, the repository-wide Ruff correctness
+gate (`E9`, `F63`, `F7`, `F82`), type checks for `utils/readout.py` and
+`utils/inference_config.py`, Python compilation and whitespace checks. It uses
+one CPU thread and disables CUDA. The ordinary suite skips opt-in checkpoint
+tests; set `PEPLAND_CHECKPOINT_TESTS=1` to exercise the bundled real MLflow
+checkpoint at `inference/cpkt/model`. Data-loader regressions use bundled
+peptides and temporary CSVs, without private dataset paths. Distributed loader
+partition tests simulate ranks on CPU; they do not establish multi-process
+training correctness or NCCL behavior.
+
+The checked checkpoint is the pretrained representation model with pretraining
+heads. It is not a saved downstream property-prediction checkpoint. Changes to
+pooling can change feature scales used by previously trained downstream heads:
+mean pooling now divides by each molecule's actual combined atom and fragment
+count, and max pooling excludes padding even for negative features. Use the
+explicit `legacy` compatibility mode when reproducing historical padding and
+empty-relation batch behavior; verify or retrain existing downstream heads before
+changing modes. The model no longer permanently removes a relation after an
+edgeless input in either mode. Default mode also preserves the singleton node
+state when another graph contributes a relation absent from that molecule.
+
+The API/root CLI canonicalizes SMILES before graph construction; the standalone
+CLI preserves the supplied atom order. Atom indices and embeddings across these
+established preprocessing conventions need not match. Compare singleton and
+batched results within the same pipeline.
+Consult [inference documentation](inference/README.md) for the supported API and
+configuration.
+
+Validation boundaries: modern CPU tests are executed locally; no GitHub CI is
+configured. Eight actual bundled checkpoint/API and saved reconstruction-head tests also
+passed with Python 3.8.20, Torch 1.11.0+cpu, DGL 0.9.1, MLflow 1.30.0,
+NumPy 1.23.5, RDKit 2023.9.6 and scikit-learn 1.3.2. This is a tested old-Torch
+combination; the artifact does not pin DGL, so it is not an exact reconstruction
+of its original runtime. Nine pure readout tests also passed with Torch 1.11.0.
+Full bundled checkpoint/API inference and all three saved reconstruction heads
+passed three GPU tests on an idle H200 with Python 3.11.16, Torch 2.2.2+cu121,
+DGL 2.2.1+cu121 and TorchData 0.7.1. Tests use eval/no-grad, fresh graphs and
+CPU/GPU comparisons (`rtol=atol=1e-4`), including pre-pooling features,
+singleton/mixed orders and sizes, edgeless inputs, avg/max and legacy readout.
+Peak allocated GPU memory was about 50.2 MiB. Earlier Torch 2.7.1+cu128 checks
+covered only readout/GRU/reverse-edge helpers; their GraphBolt binary mismatch
+was resolved for full inference by a separate matching Torch/DGL environment,
+without modifying another environment or bypassing GraphBolt loading.
+Trained downstream property checkpoint predictions and multi-process training
+remain unverified. No GitHub CI is configured.
+
+### Historical Torch checkpoint validation
+
+On Linux x86_64, in a separate Python 3.8 environment, install the historical CPU Torch wheel
+from the [official PyTorch index](https://pytorch.org/get-started/previous-versions/)
+and DGL 0.9.1 from the [official DGL wheel repository](https://data.dgl.ai/wheels/repo.html).
+DGL 1.1.3 requires Torch 1.13 or newer; use the tested 0.9.1 build with Torch 1.11.
+The saved artifact records Torch 1.11.0 and MLflow 1.30.0 but does not record DGL.
+The following command tests actual checkpoint inference, including saved
+pretraining heads; it does not create or validate a historical downstream
+property checkpoint:
+
+```bash
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==1.11.0+cpu
+python -m pip install --index-url https://pypi.org/simple \
+  numpy==1.23.5 scipy==1.10.1 pandas==1.5.3 rdkit==2023.9.6 \
+  mlflow==1.30.0 cloudpickle==2.2.1 docker==6.1.3 \
+  scikit-learn==1.3.2 omegaconf==2.3.0 pytest==8.3.5
+python -m pip install \
+  https://data.dgl.ai/wheels/dgl-0.9.1-cp38-cp38-manylinux1_x86_64.whl
+PEPLAND_CHECKPOINT_TESTS=1 CUDA_VISIBLE_DEVICES="" OMP_NUM_THREADS=1 \
+  MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+  python -m pytest -q test/test_checkpoint_readout.py test/test_checkpoint_compatibility.py
+```
+
+### GPU checkpoint validation
+
+Use a separate Linux x86_64 Python 3.11 environment with one idle CUDA GPU.
+The tested Torch 2.2.2/CUDA 12.1 and DGL 2.2.1 pairing follows the
+[official DGL compatibility table](https://www.dgl.ai/pages/start.html) and
+[matching wheel index](https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html).
+The DGL wheel includes `libgraphbolt_pytorch_2.2.2.so`; installing a newer Torch
+without its matching GraphBolt binary is not a supported replacement.
+
+```bash
+python3.11 -m venv .venv-gpu
+source .venv-gpu/bin/activate
+python -m pip install --index-url https://download.pytorch.org/whl/cu121 torch==2.2.2
+python -m pip install --index-url https://pypi.org/simple \
+  numpy==1.26.4 torchdata==0.7.1 rdkit==2023.9.6 mlflow==2.22.2 \
+  omegaconf==2.3.1 pandas==2.3.3 scipy==1.17.1 scikit-learn==1.9.1 tqdm==4.70.1 \
+  pytest==9.1.1
+python -m pip install --find-links https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html \
+  dgl==2.2.1+cu121
+# Expose this environment's official CUDA libraries to DGL's dynamic loader.
+export LD_LIBRARY_PATH="$(python -c 'import pathlib,sysconfig; print(":".join(str(p) for p in pathlib.Path(sysconfig.get_paths()["purelib"]).glob("nvidia/*/lib")))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+python -m pip check
+PEPLAND_GPU_CHECKPOINT_TESTS=1 CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 \
+  MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+  python -m pytest -q test/test_checkpoint_gpu.py
+```
+
+The GPU runner skips by default. When explicitly enabled it fails if CUDA is
+unavailable or the selected GPU has another compute process, checking again
+immediately before the first CUDA allocation. CUDA parameters, input graph
+features and outputs are asserted explicitly; a skip or pure readout helper
+check is not full checkpoint verification. GPU numerical comparisons use the
+stated tolerance rather than promising bitwise CPU/GPU identity. Saved heads
+are pretraining reconstruction heads, not trained downstream property models.
+`scripts/check.sh` deliberately disables CUDA; run the GPU command separately.

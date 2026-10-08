@@ -20,6 +20,10 @@ from torch.utils.data.distributed import DistributedSampler
 fdefName = os.path.join(RDConfig.RDDataDir,'BaseFeatures.fdef')
 factory = ChemicalFeatures.BuildFeatureFactory(fdefName)
 
+# Seven bond fields plus six stereo categories and one unknown category.
+BOND_FDIM = 14
+
+
 def bond_features(bond: Chem.rdchem.Bond):
     if bond is None:
         fbond = [1] + [0] * (BOND_FDIM - 1)
@@ -326,6 +330,8 @@ class MaskAtom:
 def Mol2HeteroGraph(mol, masked_atom_indices=None, num_atom_type=119,num_edge_type=5):
     
     # build graphs
+    if mol is None or mol.GetNumAtoms() == 0:
+        raise ValueError("molecule must be nonempty and valid")
     edge_types = [('a','b','a'),('p','r','p'),('a','j','p'), ('p','j','a')]
     edges = {k:[] for k in edge_types}
     # if mol.GetNumAtoms() == 1:
@@ -384,7 +390,7 @@ def Mol2HeteroGraph(mol, masked_atom_indices=None, num_atom_type=119,num_edge_ty
     src,dst = g.edges(etype=('a','b','a'))
     for i in range(g.num_edges(etype=('a','b','a'))):
         f_bond.append(bond_features(mol.GetBondBetweenAtoms(src[i].item(),dst[i].item())))
-    g.edges[('a','b','a')].data['x'] = torch.FloatTensor(f_bond)
+    g.edges[('a','b','a')].data['x'] = torch.FloatTensor(f_bond).reshape(-1, BOND_FDIM)
 
     f_reac = []
     src, dst = g.edges(etype=('p','r','p'))
@@ -396,7 +402,7 @@ def Mol2HeteroGraph(mol, masked_atom_indices=None, num_atom_type=119,num_edge_ty
             p1 = result_ap[i[0][1]]
             if p0_g == p0 and p1_g == p1:
                 f_reac.append(i[1])
-    g.edges[('p','r','p')].data['x'] = torch.FloatTensor(f_reac)
+    g.edges[('p','r','p')].data['x'] = torch.FloatTensor(f_reac).reshape(-1, 34)
 
     return g
 

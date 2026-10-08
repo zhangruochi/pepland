@@ -1,0 +1,30 @@
+"""Frozen original MVMP forward from ab0f66e for checkpoint compatibility.
+
+Executed with the archived module globals; intentionally retains the original
+relation-list mutation for comparison with a fresh model on every call.
+"""
+def legacy_mvmp_forward(self, bg):
+    suffix = self.suffix
+    if not bg.edges['p', 'r', 'p'].data['x'].numel() and len(self.homo_etypes) > 1:
+        self.homo_etypes.remove(('p', 'r', 'p'))
+    for ntype in self.node_types:
+        if ntype != 'junc':
+            bg.apply_nodes(self.init_node, ntype=ntype)
+    for etype in self.homo_etypes:
+        bg.apply_edges(self.init_edge, etype=etype)
+    if 'j' in self.view:
+        bg.nodes['a'].data[f'f_junc_{suffix}'] = bg.nodes['a'].data['f_junc'].clone()
+        bg.nodes['p'].data[f'f_junc_{suffix}'] = bg.nodes['p'].data['f_junc'].clone()
+    update_funcs = {e: (fn.copy_e('h', 'm'), partial(self.msg_func, attn=self.attn[''.join(e)], field=f'f_{suffix}')) for e in self.homo_etypes}
+    for i in range(self.depth - 1):
+        bg.multi_update_all(update_funcs, cross_reducer='sum')
+        for e in self.hetero_etypes:
+            apply_custom_copy_src(bg, e, src_field=f'f_junc_{suffix}', out_field='m', reduce_func=partial(self.msg_func, attn=self.attn[''.join(e)], field=f'f_junc_{suffix}'))
+        for edge_type in self.homo_etypes:
+            bg.edges[edge_type].data['rev_h'] = reverse_edge(bg.edges[edge_type].data['h'])
+            bg.apply_edges(partial(del_reverse_message, field=f'f_{suffix}'), etype=edge_type)
+            bg.apply_edges(partial(self.update_edge, layer=self.mp_list[''.join(edge_type)][i]), etype=edge_type)
+    update_funcs = {e: (fn.copy_e('h', 'mail'), partial(self.update_node, field=f'f_{suffix}', layer=self.node_last_layer[e[0]])) for e in self.homo_etypes}
+    bg.multi_update_all(update_funcs, cross_reducer='sum')
+    for e in self.hetero_etypes:
+        apply_custom_copy_src(bg, e, src_field=f'f_junc_{suffix}', out_field='mail', reduce_func=partial(self.update_node, field=f'f_junc_{suffix}', layer=self.node_last_layer['junc']))

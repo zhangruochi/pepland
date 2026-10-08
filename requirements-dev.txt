@@ -1,0 +1,5 @@
+# Validation tools for the tested Python 3.11 CPU environment.
+# Install the runtime dependencies separately (README: Reproducible validation).
+pytest==9.1.1
+ruff==0.16.10
+mypy==2.1.0

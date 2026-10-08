@@ -1,0 +1,8 @@
+[tool.ruff.lint]
+# The existing full-repository correctness gate, including archived checkpoint code.
+# No files are excluded and no per-file/global ignores hide the repaired errors.
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.pytest.ini_options]
+# Import tests by their file paths without relying on the checkout folder name.
+addopts = "--import-mode=importlib"

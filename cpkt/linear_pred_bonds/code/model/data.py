@@ -46,6 +46,10 @@ with open(os.path.join(path, 'tokenizer/vocabs/Vocab_SIZE258.txt'), 'r') as f:
 # print(f'vocab dict size {len(vocab_dict)}')
 
 
+# Seven bond fields plus six stereo categories and one unknown category.
+BOND_FDIM = 14
+
+
 def bond_features(bond: Chem.rdchem.Bond):
     if bond is None:
         fbond = [1] + [0] * (BOND_FDIM - 1)
@@ -498,6 +502,8 @@ def Mol2HeteroGraph(mol,
                     num_edge_type=5):
 
     # build graphs
+    if mol is None or mol.GetNumAtoms() == 0:
+        raise ValueError("molecule must be nonempty and valid")
     edge_types = [('a', 'b', 'a'), ('p', 'r', 'p'), ('a', 'j', 'p'),
                   ('p', 'j', 'a')]
     edges = {k: [] for k in edge_types}
@@ -603,7 +609,7 @@ def Mol2HeteroGraph(mol,
         f_bond.append(
             bond_features(mol.GetBondBetweenAtoms(src[i].item(),
                                                   dst[i].item())))
-    g.edges[('a', 'b', 'a')].data['x'] = torch.FloatTensor(f_bond)
+    g.edges[('a', 'b', 'a')].data['x'] = torch.FloatTensor(f_bond).reshape(-1, BOND_FDIM)
 
     f_reac = []
     # result_ap: Dict {atom_id:pharm_id}
@@ -621,7 +627,7 @@ def Mol2HeteroGraph(mol,
                 # this means pharmacophore A has more than 1 bonds with pharmacophore B
                 break
 
-    g.edges[('p', 'r', 'p')].data['x'] = torch.FloatTensor(f_reac)
+    g.edges[('p', 'r', 'p')].data['x'] = torch.FloatTensor(f_reac).reshape(-1, BOND_FDIM)
 
     return g
 
