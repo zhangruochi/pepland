@@ -56,6 +56,12 @@ conda activate multiview
 python inference.py
 ```
 
+Average/max peptide readout defaults to `padding_mode: exclude`, pooling only
+real atom and fragment nodes. Existing downstream checkpoints trained with padded
+features should explicitly use `padding_mode: legacy` or be recalibrated/retrained.
+See [padding compatibility and batch inference](inference/README.md#padding-compatibility)
+for the feature scale change, API options, and verification commands.
+
 ## Data 
 
 - We release all the evaluation datasets we collected in the `data/eval` folder.

@@ -6,4 +6,5 @@ inference:
   data: '../data/example.smi'
   model_path: "./cpkt/model"
   pool: avg #avg or max
+  padding_mode: exclude #exclude real-node pooling; legacy includes historical zero padding
   atom_index: false #false or index

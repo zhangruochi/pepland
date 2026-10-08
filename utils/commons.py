@@ -44,6 +44,7 @@ import torch
 import torch.nn as nn
 import dgl
 from rdkit import Chem
+from .readout import split_batch
 
 
 def load_model(model_path):
@@ -59,25 +60,6 @@ def load_model(model_path):
     model = mlflow.pytorch.load_model(model_path, map_location="cpu")
     return model
 
-
-def split_batch(bg, ntype, field, device):
-    hidden = bg.nodes[ntype].data[field]
-    node_size = bg.batch_num_nodes(ntype)
-    start_index = torch.cat(
-        [torch.tensor([0], device=device),
-         torch.cumsum(node_size, 0)[:-1]])
-    max_num_node = max(node_size)
-    # padding
-    hidden_lst = []
-    for i in range(bg.batch_size):
-        start, size = start_index[i], node_size[i]
-        assert size != 0, size
-        cur_hidden = hidden.narrow(0, start, size)
-        cur_hidden = torch.nn.ZeroPad2d(
-            (0, 0, 0, max_num_node - cur_hidden.shape[0]))(cur_hidden)
-        hidden_lst.append(cur_hidden.unsqueeze(0))
-    hidden_lst = torch.cat(hidden_lst, 0)
-    return hidden_lst
 
 
 class Permute(nn.Module):

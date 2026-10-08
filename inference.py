@@ -58,7 +58,8 @@ if __name__ == "__main__":
                           and len(cfg.inference.device_ids) > 0 else "cpu")
     data_path = os.path.join(root_dir, cfg.inference.data)
 
-    model = PepLandFeatureExtractor(model_path, pooling)
+    model = PepLandFeatureExtractor(
+        model_path, pooling, padding_mode=cfg.inference.get("padding_mode", "exclude"))
 
     ## Get the smiles list
     with open(cfg.inference.data, "r") as f:

@@ -10,6 +10,9 @@ import pandas as pd
 import dgl
 
 root_dir = os.path.dirname(os.path.abspath(__file__))
+# Support both direct script execution and imports from the repository root.
+sys.path.insert(0, os.path.dirname(root_dir))
+from utils.readout import split_batch, pool_atom_fragment
 
 
 def load_model(cfg):
@@ -19,26 +22,6 @@ def load_model(cfg):
     model = mlflow.pytorch.load_model(model_path, map_location="cpu")
     model.eval()
     return model
-
-
-def split_batch(bg, ntype, field, device):
-    hidden = bg.nodes[ntype].data[field]
-    node_size = bg.batch_num_nodes(ntype)
-    start_index = torch.cat(
-        [torch.tensor([0], device=device),
-         torch.cumsum(node_size, 0)[:-1]])
-    max_num_node = max(node_size)
-    # padding
-    hidden_lst = []
-    for i in range(bg.batch_size):
-        start, size = start_index[i], node_size[i]
-        assert size != 0, size
-        cur_hidden = hidden.narrow(0, start, size)
-        cur_hidden = torch.nn.ZeroPad2d(
-            (0, 0, 0, max_num_node - cur_hidden.shape[0]))(cur_hidden)
-        hidden_lst.append(cur_hidden.unsqueeze(0))
-    hidden_lst = torch.cat(hidden_lst, 0)
-    return hidden_lst
 
 
 class Permute(nn.Module):
@@ -90,18 +73,12 @@ if __name__ == "__main__":
         except Exception as e:
             print(e, 'invalid', smi)
 
-    if pooling == 'max':
-        pool = nn.Sequential(Permute(), nn.AdaptiveMaxPool1d(output_size=1),
-                             Squeeze(dim=-1))
-    elif pooling == 'avg':
-        pool = nn.Sequential(Permute(), nn.AdaptiveAvgPool1d(output_size=1),
-                             Squeeze(dim=-1))
-
     atom_index = cfg.inference.atom_index
     bg = dgl.batch(graphs)
 
     bg = bg.to(device)
-    atom_embed, frag_embed = model(bg)
+    with torch.no_grad():
+        atom_embed, frag_embed = model(bg)
     bg.nodes['a'].data['h'] = atom_embed
     bg.nodes['p'].data['h'] = frag_embed
     atom_rep = split_batch(bg, 'a', 'h', device)
@@ -113,8 +90,10 @@ if __name__ == "__main__":
 
         # if not set atom index, return the whole peptide embedding (atom + fragment)
         frag_rep = split_batch(bg, 'p', 'h', device)
-        embed = pool(torch.cat([atom_rep, frag_rep],
-                               dim=1)).detach().cpu().numpy()
+        embed = pool_atom_fragment(
+            atom_rep, frag_rep, bg.batch_num_nodes('a'), bg.batch_num_nodes('p'),
+            pooling=pooling, padding_mode=cfg.inference.get('padding_mode', 'exclude')
+        ).detach().cpu().numpy()
         pep_embeds = embed
 
     print(pep_embeds.shape)

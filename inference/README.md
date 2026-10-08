@@ -112,7 +112,7 @@ import dgl
 import torch.nn as nn
 from omegaconf import OmegaConf
 from process import Mol2HeteroGraph
-from inference_pepland import load_model, split_batch
+from inference_pepland import load_model, split_batch, pool_atom_fragment
 
 # Load model
 cfg = OmegaConf.load('../configs/inference.yaml')
@@ -138,12 +138,11 @@ with torch.no_grad():
     atom_rep = split_batch(bg, 'a', 'h', device)
     frag_rep = split_batch(bg, 'p', 'h', device)
     
-    # Average pooling
-    pool = nn.Sequential(
-        nn.AdaptiveAvgPool1d(output_size=1),
-    )
-    pep_embeds = pool(torch.cat([atom_rep, frag_rep], dim=1).permute(0, 2, 1))
-    pep_embeds = pep_embeds.squeeze(-1).numpy()
+    # Average over all real atom + fragment nodes, using graph counts.
+    pep_embeds = pool_atom_fragment(
+        atom_rep, frag_rep, bg.batch_num_nodes('a'), bg.batch_num_nodes('p'),
+        pooling='avg', padding_mode='exclude'
+    ).cpu().numpy()
     
     print(f"Peptide embeddings shape: {pep_embeds.shape}")  # (2, 300)
 ```
@@ -154,3 +153,63 @@ with torch.no_grad():
 - For CPU-only inference, set `device_ids: []` in config
 - Model outputs 300-dimensional embeddings
 - The warning about PyTorch version mismatch (1.11.0 vs 1.11.0+cu113) can be safely ignored
+
+### Padding compatibility
+
+Average/max readout now defaults to `padding_mode="exclude"`: the average is
+`(sum(real atoms) + sum(real fragments)) / (A + F)`, preserving equal weight
+per node; max ignores padding even for all-negative features. True zero feature
+vectors remain real nodes. For fixed pre-pooling features, outputs are independent
+of batch composition. This does not promise batch invariance for arbitrary models
+in training mode (dropout, batch normalization, or other upstream operations).
+
+Older readout divided by `Amax + Fmax` (the two maxima can belong to different
+peptides). Thus corrected average features equal old features times
+`(Amax + Fmax) / (A + F)` for the same node features. Downstream models trained on
+old padded features may need retraining/recalibration; do not silently switch their
+feature convention. Set `inference.padding_mode: legacy` in the config, or pass
+`padding_mode="legacy"` to `PepLandFeatureExtractor`/`PropertyPredictor`, to retain
+historical batch-dependent mean/max readout. Reproduce the old batch composition
+as well. Feature dimensions and pretrained backbone weights are unchanged.
+
+The API's `gru` readout also uses real lengths by default; `legacy` retains its
+old padded last-step behavior. It requires nonempty atom and fragment sequences.
+`pooling=None` and `atom_index` continue to return padded node features. The public
+`extract_atom_fragment_embedding` still returns two tensors by default; use
+`return_counts=True` to also obtain atom and fragment counts. Empty batches or
+graphs with no nodes of either type raise `ValueError` in average/max readout.
+Old full serialized feature-extractor objects without `padding_mode` keep legacy
+behavior; newly constructed objects use `exclude`. When loading a state dict,
+choose the constructor's mode explicitly for the downstream feature convention.
+
+### Readout regression tests
+
+From the repository root, pure Torch tests need no model checkpoint, DGL, or
+MLflow (their small fake graph checks exercise only splitting/readout):
+
+```sh
+CUDA_VISIBLE_DEVICES="" OMP_NUM_THREADS=1 python -m unittest discover -s test -p test_readout.py -v
+```
+
+To explicitly run the bundled checkpoint and API checks in an environment with
+compatible Torch, DGL, MLflow, RDKit, OmegaConf, and IPython (imported by
+the tokenizer):
+
+```sh
+PEPLAND_CHECKPOINT_TESTS=1 CUDA_VISIBLE_DEVICES="" OMP_NUM_THREADS=1 python -m unittest discover -s test -p test_checkpoint_readout.py -v
+```
+
+These optional tests compare node features before pooling, then avg/max features
+and PropertyPredictor outputs in CPU eval/no-grad mode with newly built graphs.
+They cover three peptides, multiple batch sizes/orders, legacy readout and API
+GRU lengths. They skip unless explicitly enabled; a skip is not checkpoint
+verification. The bundled checkpoint's internal pretrained readout modules are
+unchanged; its inference forward returns node embeddings before those modules.
+
+Verified on CPU with Python 3.11, Torch 2.2.2+cpu, DGL 1.1.3, MLflow 2.22.2,
+RDKit 2023.9.6 and NumPy 1.26.4. The checkpoint records Torch 1.11.0; its
+version warning was present during these successful tests. The original Torch
+1.11.0 environment and GPU execution were not verified. The GRU tests use the
+real module with random parameters, PropertyPredictor uses an untrained head,
+and old-object fallback is tested by simulating missing attributes rather than
+loading a historical full serialized extractor artifact.

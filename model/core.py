@@ -38,6 +38,7 @@
 import os
 import sys
 from ..utils.commons import load_model, split_batch, Permute, Squeeze, to_canonical_smiles
+from ..utils.readout import pool_atom_fragment, _counts
 from ..utils.process import Mol2HeteroGraph
 import torch
 import torch.nn as nn
@@ -71,13 +72,34 @@ class Node_GRU(nn.Module):
         self.projection = nn.Linear(hid_dim * 2 * factor, hid_dim)
 
     def forward(self, atom_rep: torch.Tensor,
-                frag_rep: torch.Tensor) -> torch.Tensor:
+                frag_rep: torch.Tensor, atom_counts=None, frag_counts=None) -> torch.Tensor:
 
-        atom_rep, _ = self.atom_gru(atom_rep)
-        frag_rep, _ = self.frag_gru(frag_rep)
-
-        atom_rep = atom_rep[:, -1, :]
-        frag_rep = frag_rep[:, -1, :]
+        if atom_counts is None and frag_counts is None:
+            atom_rep, _ = self.atom_gru(atom_rep)
+            frag_rep, _ = self.frag_gru(frag_rep)
+            atom_rep = atom_rep[:, -1, :]
+            frag_rep = frag_rep[:, -1, :]
+        else:
+            if atom_counts is None or frag_counts is None:
+                raise ValueError("both atom and fragment counts are required")
+            if (atom_rep.ndim != 3 or frag_rep.ndim != 3
+                    or atom_rep.shape[0] != frag_rep.shape[0]
+                    or atom_rep.shape[0] == 0):
+                raise ValueError("GRU inputs must share a nonempty batch dimension")
+            atom_counts = _counts(atom_counts, atom_rep.shape[0], atom_rep.shape[1], atom_rep.device)
+            frag_counts = _counts(frag_counts, frag_rep.shape[0], frag_rep.shape[1], frag_rep.device)
+            # Run only true timesteps, preserving the original last-output
+            # semantics of the bidirectional GRU without including padding.
+            def last_real(gru, rep, counts):
+                outputs = []
+                for row, count in zip(rep, counts.tolist()):
+                    if count <= 0:
+                        raise ValueError("GRU pooling requires both node types to be nonempty")
+                    output, _ = gru(row[:count].unsqueeze(0))
+                    outputs.append(output[:, -1, :])
+                return torch.cat(outputs, dim=0)
+            atom_rep = last_real(self.atom_gru, atom_rep, atom_counts)
+            frag_rep = last_real(self.frag_gru, frag_rep, frag_counts)
 
         embed = torch.cat([atom_rep, frag_rep], dim=1)
 
@@ -91,15 +113,21 @@ class PepLandFeatureExtractor(nn.Module):
     def __init__(self,
                  model_path,
                  pooling: Union[str, None] = 'avg',
-                 freeze=True):
+                 freeze=True,
+                 padding_mode="exclude"):
         """ Initialize the PepLandInference class
             args:
                 model_path: str, the path to the model directory
                 pooling: str, the pooling method, either 'max', 'avg', or 'gru'
                 freeze: bool, whether to freeze the model
+                padding_mode: 'exclude' (real nodes) or 'legacy' (old padding)
         """
         super(PepLandFeatureExtractor, self).__init__()
 
+        if padding_mode not in ('exclude', 'legacy'):
+            raise ValueError("padding_mode must be 'exclude' or 'legacy'")
+        self.padding_mode = padding_mode
+        self.pooling = pooling
         self.model = load_model(model_path)
 
         # Remove layers containing "readout" and "out"
@@ -158,7 +186,7 @@ class PepLandFeatureExtractor(nn.Module):
 
     def extract_atom_fragment_embedding(
             self, input_smiles: Union[List[str],
-                                      dgl.DGLHeteroGraph]) -> torch.Tensor:
+                                      dgl.DGLHeteroGraph], return_counts=False) -> torch.Tensor:
         """ Extract the atom and fragment embedding from the model
             args:
                 input_smiles: List of SMILES strings or DGL graphs
@@ -175,6 +203,10 @@ class PepLandFeatureExtractor(nn.Module):
         if isinstance(input_smiles, str):
             input_smiles = [input_smiles]
 
+        if isinstance(input_smiles, dgl.DGLHeteroGraph):
+            input_smiles = [input_smiles]
+        if len(input_smiles) == 0:
+            raise ValueError("input_smiles must be nonempty")
         if not isinstance(input_smiles[0], dgl.DGLHeteroGraph):
             graphs = self.tokenize(input_smiles)
         else:
@@ -191,6 +223,9 @@ class PepLandFeatureExtractor(nn.Module):
         atom_embeds = split_batch(bg, 'a', 'h', self.device)
         frag_embeds = split_batch(bg, 'p', 'h', self.device)
 
+        if return_counts:
+            return (atom_embeds, frag_embeds,
+                    bg.batch_num_nodes('a'), bg.batch_num_nodes('p'))
         return atom_embeds, frag_embeds
 
     def forward(
@@ -217,7 +252,10 @@ class PepLandFeatureExtractor(nn.Module):
                 atom_index = None
                 pep_embeds.shape == [2, 300]
         """
-        atom_rep, frag_rep = self.extract_atom_fragment_embedding(input_smiles)
+        atom_rep, frag_rep, atom_counts, frag_counts = self.extract_atom_fragment_embedding(
+            input_smiles, return_counts=True)
+        # Full objects serialized before this option existed retain old behavior.
+        padding_mode = getattr(self, 'padding_mode', 'legacy')
 
         # If atom_index is set, only return the atom embedding with the index
         if atom_index is not None:
@@ -226,10 +264,16 @@ class PepLandFeatureExtractor(nn.Module):
             # If not set atom index, return the whole peptide embedding (atom + fragment)
             if self.pooling_layer is not None:
                 if isinstance(self.pooling_layer, Node_GRU):
-                    embed = self.pooling_layer(atom_rep, frag_rep)
+                    if padding_mode == 'legacy':
+                        embed = self.pooling_layer(atom_rep, frag_rep)
+                    else:
+                        embed = self.pooling_layer(atom_rep, frag_rep, atom_counts, frag_counts)
                 else:
-                    embed = self.pooling_layer(
-                        torch.cat([atom_rep, frag_rep], dim=1))
+                    if padding_mode == 'legacy':
+                        embed = self.pooling_layer(torch.cat([atom_rep, frag_rep], dim=1))
+                    else:
+                        embed = pool_atom_fragment(atom_rep, frag_rep, atom_counts,
+                                                   frag_counts, self.pooling, padding_mode)
             else:
                 embed = torch.cat([atom_rep, frag_rep], dim=1)
 
@@ -252,12 +296,14 @@ class PropertyPredictor(nn.Module):
                  model_path,
                  pooling="avg",
                  hidden_dims=[256, 128],
-                 mlp_dropout=0.1):
+                 mlp_dropout=0.1,
+                 padding_mode="exclude"):
         """ Initialize the PropertyPredictor class"""
         super(PropertyPredictor, self).__init__()
 
         self.feature_model = PepLandFeatureExtractor(model_path=model_path,
-                                                     pooling=pooling)
+                                                     pooling=pooling,
+                                                     padding_mode=padding_mode)
 
         self.mlp = nn.Sequential()
         input_dim = 300
