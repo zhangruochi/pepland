@@ -171,3 +171,61 @@ Draw.MolToImage(mol, highlightBonds=highlight_bonds, size = (1000, 1000))
 ```
 
 ![Adafrag](./doc/Adafrag.png)
+## Reproducible validation
+
+Use an isolated environment; the historical training specification in
+`environment.yaml` remains unchanged. The modern CPU validation environment uses
+Python 3.11, Torch 2.2.2, DGL 1.1.3, RDKit 2023.9.6 and MLflow 2.22.2. From a Git checkout at the
+repository root, install packages from PyPI and the official PyTorch CPU index:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.2.2
+python -m pip install --index-url https://pypi.org/simple \
+  numpy==1.26.4 dgl==1.1.3 rdkit==2023.9.6 mlflow==2.22.2 \
+  omegaconf==2.3.1 pandas==2.3.3 scipy==1.17.1 scikit-learn==1.9.1 tqdm==4.70.1
+python -m pip install --index-url https://pypi.org/simple -r requirements-dev.txt
+bash scripts/check.sh
+PEPLAND_CHECKPOINT_TESTS=1 bash scripts/check.sh
+```
+
+The script runs the complete pytest suite, the repository-wide Ruff correctness
+gate (`E9`, `F63`, `F7`, `F82`), type checks for `utils/readout.py` and
+`utils/inference_config.py`, Python compilation and whitespace checks. It uses
+one CPU thread and disables CUDA. The ordinary suite skips opt-in checkpoint
+tests; set `PEPLAND_CHECKPOINT_TESTS=1` to exercise the bundled real MLflow
+checkpoint at `inference/cpkt/model`. Data-loader regressions use bundled
+peptides and temporary CSVs, without private dataset paths. Distributed loader
+partition tests simulate ranks on CPU; they do not establish multi-process
+training correctness or NCCL behavior.
+
+The checked checkpoint is the pretrained representation model with pretraining
+heads. It is not a saved downstream property-prediction checkpoint. Changes to
+pooling can change feature scales used by previously trained downstream heads:
+mean pooling now divides by each molecule's actual combined atom and fragment
+count, and max pooling excludes padding even for negative features. Use the
+explicit `legacy` compatibility mode when reproducing historical padding and
+empty-relation batch behavior; verify or retrain existing downstream heads before
+changing modes. The model no longer permanently removes a relation after an
+edgeless input in either mode. Default mode also preserves the singleton node
+state when another graph contributes a relation absent from that molecule.
+
+The API/root CLI canonicalizes SMILES before graph construction; the standalone
+CLI preserves the supplied atom order. Atom indices and embeddings across these
+established preprocessing conventions need not match. Compare singleton and
+batched results within the same pipeline.
+Consult [inference documentation](inference/README.md) for the supported API and
+configuration.
+
+Validation boundaries: modern CPU tests are executed locally; no GitHub CI is
+configured. Nine pure readout tests also passed with Python 3.8.20 and
+Torch 1.11.0+cpu. Historical-runtime checkpoint inference remains unverified:
+bounded isolated dependency preparation did not finish installing DGL.
+CUDA readout, uni/bidirectional GRU and reverse-edge helper checks passed on an
+H200 with Torch 2.7.1+cu128, using about 65 MiB peak allocated memory. These were
+actual helper/module checks, not full GPU checkpoint inference; the available
+DGL GraphBolt binary was incompatible with that Torch build. Trained downstream
+property checkpoint predictions and multi-process training remain unverified.
+The repository does not include a GPU validation runner; GPU checks require an
+appropriate isolated environment and an available device.

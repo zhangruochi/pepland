@@ -1,0 +1,26 @@
+# Frozen actual functions from commit ab0f66eac2b82f87b6b58237f27f7feec90738c0.
+# AST equivalence verified across all 27 feature modules before freezing.
+def bond_features(bond: Chem.rdchem.Bond):
+    if bond is None:
+        fbond = [1] + [0] * (BOND_FDIM - 1)
+    else:
+        bt = bond.GetBondType()
+        fbond = [
+            0,  # bond is not None
+            bt == Chem.rdchem.BondType.SINGLE,
+            bt == Chem.rdchem.BondType.DOUBLE,
+            bt == Chem.rdchem.BondType.TRIPLE,
+            bt == Chem.rdchem.BondType.AROMATIC,
+            (bond.GetIsConjugated() if bt is not None else 0),
+            (bond.IsInRing() if bt is not None else 0)
+        ]
+        fbond += onek_encoding_unk(int(bond.GetStereo()), list(range(6)))
+
+    return fbond
+
+def onek_encoding_unk(value, choices):
+    encoding = [0] * (len(choices) + 1)
+    index = choices.index(value) if value in choices else -1
+    encoding[index] = 1
+
+    return encoding

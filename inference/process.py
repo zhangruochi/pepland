@@ -88,6 +88,10 @@ allowable_features = {
     ]
 }
 
+# Seven bond fields plus six stereo categories and one unknown category.
+BOND_FDIM = 14
+
+
 def bond_features(bond: Chem.rdchem.Bond):
     if bond is None:
         fbond = [1] + [0] * (BOND_FDIM - 1)
@@ -250,9 +254,11 @@ def maccskeys_emb(mol):
 
 def Mol2HeteroGraph(smi):
     
+    if not isinstance(smi, str):
+        raise ValueError("molecule must be a nonempty valid SMILES string")
     mol = Chem.MolFromSmiles(smi)
-    if mol==None:
-        print(smi)
+    if mol is None or mol.GetNumAtoms() == 0:
+        raise ValueError("molecule must be a nonempty valid SMILES string")
     # build graphs
     edge_types = [('a','b','a'),('p','r','p'),('a','j','p'), ('p','j','a')]
     edges = {k:[] for k in edge_types}
@@ -334,7 +340,7 @@ def Mol2HeteroGraph(smi):
     src,dst = g.edges(etype=('a','b','a'))
     for i in range(g.num_edges(etype=('a','b','a'))):
         f_bond.append(bond_features(mol.GetBondBetweenAtoms(src[i].item(),dst[i].item())))
-    g.edges[('a','b','a')].data['x'] = torch.FloatTensor(f_bond)
+    g.edges[('a','b','a')].data['x'] = torch.FloatTensor(f_bond).reshape(-1, BOND_FDIM)
 
     f_reac = []
     # result_ap: Dict {atom_id:pharm_id}
@@ -353,6 +359,6 @@ def Mol2HeteroGraph(smi):
                 break
 
 
-    g.edges[('p','r','p')].data['x'] = torch.FloatTensor(f_reac)
+    g.edges[('p','r','p')].data['x'] = torch.FloatTensor(f_reac).reshape(-1, BOND_FDIM)
 
     return g

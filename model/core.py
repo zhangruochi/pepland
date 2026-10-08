@@ -124,6 +124,8 @@ class PepLandFeatureExtractor(nn.Module):
         """
         super(PepLandFeatureExtractor, self).__init__()
 
+        if pooling not in ('avg', 'max', 'gru', None):
+            raise ValueError("pooling must be 'avg', 'max', 'gru' or None")
         if padding_mode not in ('exclude', 'legacy'):
             raise ValueError("padding_mode must be 'exclude' or 'legacy'")
         self.padding_mode = padding_mode
@@ -213,6 +215,10 @@ class PepLandFeatureExtractor(nn.Module):
             graphs = input_smiles
 
         bg = dgl.batch(graphs).to(self.device)
+        padding_mode = getattr(self, "padding_mode", "legacy")
+        for module in self.model.modules():
+            if module.__class__.__name__ == "MVMP":
+                module.empty_relation_mode = "per_graph" if padding_mode == "exclude" else "legacy"
 
         with torch.no_grad():
             atom_embed, frag_embed = self.model(bg)

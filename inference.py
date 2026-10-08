@@ -36,36 +36,44 @@
 # -----
 ###
 
-import os
+import argparse
+import importlib.util
+from pathlib import Path
 import sys
 
-root_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(root_dir))
-from pepland.model.core import PepLandFeatureExtractor
-import mlflow
+# Direct execution works even when the checkout directory is renamed.
+ROOT = Path(__file__).resolve().parent
+spec = importlib.util.spec_from_file_location("pepland", ROOT / "__init__.py",
+                                             submodule_search_locations=[str(ROOT)])
+package = importlib.util.module_from_spec(spec)
+sys.modules["pepland"] = package
+spec.loader.exec_module(package)
+
 import torch
-import torch.nn as nn
 from omegaconf import OmegaConf
-import dgl
-from typing import List, Union
+from pepland.model.core import PepLandFeatureExtractor
+from pepland.utils.inference_config import atom_index, resolve_path
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Extract PepLand peptide embeddings")
+    parser.add_argument("--config", type=Path, default=ROOT / "configs" / "inference.yaml")
+    args = parser.parse_args(argv)
+    cfg = OmegaConf.load(args.config)
+    device_ids = cfg.inference.get("device_ids", [])
+    device = torch.device("cuda:{}".format(device_ids[0])
+                          if torch.cuda.is_available() and device_ids else "cpu")
+    model_path = resolve_path(cfg.inference.model_path, ROOT, ROOT / "inference")
+    data_path = resolve_path(cfg.inference.data, ROOT, ROOT / "inference")
+    model = PepLandFeatureExtractor(str(model_path), cfg.inference.pool,
+                                   padding_mode=cfg.inference.get("padding_mode", "exclude"))
+    model.to(device).eval()
+    smiles = [line.strip() for line in data_path.read_text().splitlines() if line.strip()]
+    with torch.no_grad():
+        embeddings = model(smiles, atom_index=atom_index(cfg.inference.get("atom_index", False)))
+    print(tuple(embeddings.shape))
+    print(embeddings.cpu().numpy())
+
 
 if __name__ == "__main__":
-    cfg = OmegaConf.load(os.path.join(root_dir, "./configs/inference.yaml"))
-    pooling = cfg.inference.pool
-    model_path = os.path.join(root_dir, cfg.inference.model_path)
-    device = torch.device("cuda:{}".format(cfg.inference.device_ids[0]
-                                           ) if torch.cuda.is_available()
-                          and len(cfg.inference.device_ids) > 0 else "cpu")
-    data_path = os.path.join(root_dir, cfg.inference.data)
-
-    model = PepLandFeatureExtractor(
-        model_path, pooling, padding_mode=cfg.inference.get("padding_mode", "exclude"))
-
-    ## Get the smiles list
-    with open(cfg.inference.data, "r") as f:
-        input_smiles = f.readlines()
-
-    with torch.no_grad():
-        pep_embeds = model(input_smiles)
-
-    print(pep_embeds)
+    main()

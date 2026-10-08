@@ -1,9 +1,15 @@
 """Padding-aware readout using graph counts, never embedding values."""
+from typing import Any, Optional, Sequence, Union
+
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
 
-def _counts(counts, batch_size, max_nodes, device):
+NodeCounts = Union[torch.Tensor, Sequence[int]]
+Device = Optional[Union[str, torch.device]]
+
+
+def _counts(counts: NodeCounts, batch_size: int, max_nodes: int, device: Device) -> torch.Tensor:
     counts = torch.as_tensor(counts, device=device)
     if counts.ndim != 1 or counts.numel() != batch_size:
         raise ValueError("node counts must contain one entry per graph")
@@ -14,7 +20,7 @@ def _counts(counts, batch_size, max_nodes, device):
     return counts.to(dtype=torch.long)
 
 
-def split_batch(bg, ntype, field, device=None):
+def split_batch(bg: Any, ntype: str, field: str, device: Device = None) -> torch.Tensor:
     """Return padded node features, retaining real zeros and empty node types.
 
     ``device`` remains accepted for compatibility; features determine placement.
@@ -33,8 +39,9 @@ def split_batch(bg, ntype, field, device=None):
     return pad_sequence(hidden.split(sizes), batch_first=True)
 
 
-def pool_atom_fragment(atom_rep, frag_rep, atom_counts, frag_counts,
-                       pooling='avg', padding_mode='exclude'):
+def pool_atom_fragment(atom_rep: torch.Tensor, frag_rep: torch.Tensor,
+                       atom_counts: NodeCounts, frag_counts: NodeCounts,
+                       pooling: str = 'avg', padding_mode: str = 'exclude') -> torch.Tensor:
     """Pool the union of real atom and fragment nodes for each graph.
 
     ``legacy`` deliberately includes zero padding, reproducing historical
